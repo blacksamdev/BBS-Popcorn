@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=BBS Popcorn
+Comment=YouTube via MPV sans publicité
+Exec=bbs-popcorn
+Icon=io.bbs.Popcorn
+Type=Application
+Categories=AudioVideo;Video;Network;
+Terminal=false
+StartupNotify=true

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+    <rect width="128" height="128" rx="24" fill="#1a1a1a"/>
+    <rect x="16" y="28" width="96" height="72" rx="12" fill="#FF0000"/>
+    <polygon points="52,44 90,64 52,84" fill="white"/>
+    <text x="64" y="118" font-size="10" fill="white"
+          text-anchor="middle" font-family="sans-serif">BBS</text>
+    </svg>

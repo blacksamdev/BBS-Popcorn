@@ -1,0 +1,55 @@
+{
+  "app-id": "io.bbs.Popcorn",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "47",
+  "sdk": "org.gnome.Sdk",
+  "command": "bbs-popcorn",
+
+  "finish-args": [
+    "--share=network",
+    "--share=ipc",
+    "--socket=wayland",
+    "--socket=fallback-x11",
+    "--socket=pulseaudio",
+    "--device=dri",
+    "--filesystem=home",
+    "--talk-name=org.freedesktop.Flatpak"
+  ],
+
+  "modules": [
+    {
+      "name": "yt-dlp",
+      "buildsystem": "simple",
+      "build-commands": [
+        "pip3 install --no-index --find-links=. --prefix=/app yt_dlp-2026.3.17-py3-none-any.whl"
+      ],
+      "sources": [
+        {
+          "type": "file",
+          "url": "https://files.pythonhosted.org/packages/py3/y/yt_dlp/yt_dlp-2026.3.17-py3-none-any.whl",
+          "sha256": "32992db94303a8a5d211a183f2174834fe7f8c29d83ed2e7a324eae97a8f26d8"
+        }
+      ]
+    },
+    {
+      "name": "bbs-popcorn",
+      "buildsystem": "simple",
+      "build-commands": [
+        "install -Dm755 bbs-popcorn.sh /app/bin/bbs-popcorn",
+        "install -Dm644 src/main.py    /app/share/bbs-popcorn/main.py",
+        "install -Dm644 src/app.py     /app/share/bbs-popcorn/app.py",
+        "install -Dm644 src/player.py  /app/share/bbs-popcorn/player.py",
+        "install -Dm644 src/cookies.py /app/share/bbs-popcorn/cookies.py",
+        "install -Dm644 src/updater.py /app/share/bbs-popcorn/updater.py",
+        "install -Dm644 data/io.bbs.Popcorn.desktop /app/share/applications/io.bbs.Popcorn.desktop",
+        "install -Dm644 data/io.bbs.Popcorn.svg /app/share/icons/hicolor/scalable/apps/io.bbs.Popcorn.svg"
+      ],
+      "sources": [
+        {
+          "type": "dir",
+          "path": "."
+        }
+      ]
+    }
+  ]
+}
