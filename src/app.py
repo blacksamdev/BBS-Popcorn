@@ -12,7 +12,7 @@ YOUTUBE_URL = "https://www.youtube.fr"
 
 class YtMpvApp(Gtk.Application):
     def __init__(self, cookie_db_path: str, cookie_export_path: str):
-        super().__init__(application_id="io.bbs.Popcorn")
+        super().__init__(application_id="io.github.blacksamdev.Popcorn")
         self.connect("activate", self.on_activate)
 
         self.cookie_db_path     = cookie_db_path

@@ -1,5 +1,5 @@
 {
-  "app-id": "io.bbs.Popcorn",
+  "app-id": "io.github.blacksamdev.Popcorn",
   "runtime": "org.gnome.Platform",
   "runtime-version": "47",
   "sdk": "org.gnome.Sdk",
@@ -41,8 +41,8 @@
         "install -Dm644 src/player.py  /app/share/bbs-popcorn/player.py",
         "install -Dm644 src/cookies.py /app/share/bbs-popcorn/cookies.py",
         "install -Dm644 src/updater.py /app/share/bbs-popcorn/updater.py",
-        "install -Dm644 data/io.bbs.Popcorn.desktop /app/share/applications/io.bbs.Popcorn.desktop",
-        "install -Dm644 data/io.bbs.Popcorn.svg /app/share/icons/hicolor/scalable/apps/io.bbs.Popcorn.svg"
+        "install -Dm644 data/io.github.blacksamdev.Popcorn.desktop /app/share/applications/io.github.blacksamdev.Popcorn.desktop",
+        "install -Dm644 data/io.github.blacksamdev.Popcorn.svg /app/share/icons/hicolor/scalable/apps/io.github.blacksamdev.Popcorn.svg"
       ],
       "sources": [
         {
