@@ -2,6 +2,5 @@
 Title=BBS Popcorn
 Url=https://blacksamdev.github.io/BBS-Popcorn/
 Homepage=https://github.com/blacksamdev/BBS-Popcorn
-Description=BBS Popcorn - YouTube via MPV sans publicité
+Description=BBS Popcorn - Client YouTube via MPV
 Icon=https://raw.githubusercontent.com/blacksamdev/BBS-Popcorn/main/data/io.github.blacksamdev.Popcorn.svg
-GPGKey=
