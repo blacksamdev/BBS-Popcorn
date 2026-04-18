@@ -16,11 +16,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder
           sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak install -y flathub org.gnome.Platform//47 org.gnome.Sdk//47
+          sudo flatpak install -y flathub org.gnome.Platform//49 org.gnome.Sdk//49
 
       - name: Build Flatpak
         run: |
           flatpak-builder --force-clean --repo=repo build-dir io.github.blacksamdev.Popcorn.json
+
+      - name: Copy flatpakrepo file
+        run: cp bbs-popcorn.flatpakrepo repo/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
