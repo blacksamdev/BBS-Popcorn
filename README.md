@@ -2,14 +2,14 @@
 
 **YouTube sans publicité, via MPV.**
 
-BBS Popcorn est un client YouTube Linux qui affiche l'interface YouTube normale dans une fenêtre GTK, mais intercepte chaque clic sur une vidéo ou une playlist pour la lire dans MPV — sans aucune publicité, avec le meilleur format disponible et le décodage hardware.
+BBS Popcorn est un client YouTube Linux qui affiche l'interface YouTube normale dans une fenêtre GTK et intercepte chaque clic sur une vidéo ou une playlist pour la lire dans MPV — avec le meilleur format disponible et le décodage hardware.
 
 ---
 
 ## Fonctionnalités
 
 - Interface YouTube complète (navigation, recherche, connexion Google)
-- Lecture des vidéos et playlists via MPV (sans pub)
+- Lecture des vidéos et playlists via MPV (lecteur vidéo externe)
 - Support des lives YouTube
 - Décodage hardware automatique (VAAPI, NVDEC)
 - Cookies de session persistants
@@ -53,6 +53,7 @@ flatpak run io.github.blacksamdev.Popcorn
 ---
 
 ## Architecture
+
 WebKitGTK  →  affiche YouTube normalement
 │
 └── intercepte les clics vidéo/playlist
