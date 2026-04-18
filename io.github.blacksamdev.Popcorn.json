@@ -1,7 +1,7 @@
 {
   "app-id": "io.github.blacksamdev.Popcorn",
   "runtime": "org.gnome.Platform",
-  "runtime-version": "47",
+  "runtime-version": "49",
   "sdk": "org.gnome.Sdk",
   "command": "bbs-popcorn",
 
