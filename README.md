@@ -1,27 +1,28 @@
 # BBS Popcorn 🍿
 
-**Client YouTube utilisant MPV comme lecteur externe**
+**YouTube sans publicité, via MPV.**
 
-BBS Popcorn est une application Linux qui affiche l’interface web de :contentReference[oaicite:0]{index=0} dans une fenêtre GTK, et permet d’ouvrir les vidéos dans un lecteur externe (MPV).
+BBS Popcorn est un client YouTube Linux qui affiche l'interface YouTube normale dans une fenêtre GTK, mais intercepte chaque clic sur une vidéo ou une playlist pour la lire dans MPV — sans aucune publicité, avec le meilleur format disponible et le décodage hardware.
 
 ---
 
 ## Fonctionnalités
 
 - Interface YouTube complète (navigation, recherche, connexion Google)
-- Ouverture des vidéos via :contentReference[oaicite:1]{index=1}
-- Support des diffusions en direct (selon compatibilité)
-- Support du décodage matériel (VAAPI, NVDEC selon configuration)
-- Gestion locale des cookies de session
+- Lecture des vidéos et playlists via MPV (sans pub)
+- Support des lives YouTube
+- Décodage hardware automatique (VAAPI, NVDEC)
+- Cookies de session persistants
+- Mise à jour automatique de MPV et yt-dlp au démarrage
 - Compatible X11 et Wayland
 
 ---
 
 ## Prérequis
 
-- Linux (distribution compatible Flatpak)
+- Linux (toute distribution)
 - Flatpak
-- MPV Flatpak (`io.mpv.Mpv`) — installé automatiquement si nécessaire
+- MPV Flatpak (`io.mpv.Mpv`) — installé automatiquement au premier lancement
 
 ---
 
@@ -34,7 +35,7 @@ flatpak remote-add --if-not-exists bbs-popcorn https://blacksamdev.github.io/BBS
 flatpak install bbs-popcorn io.github.blacksamdev.Popcorn
 ```
 
-### Depuis le repo Flatpak BBS
+### Mise à jour
 
 ```bash
 flatpak update io.github.blacksamdev.Popcorn
@@ -49,45 +50,51 @@ flatpak-builder --user --install --force-clean build-dir io.github.blacksamdev.P
 flatpak run io.github.blacksamdev.Popcorn
 ```
 
-### Architecture
+---
 
-WebKitGTK → affichage de l’interface web
-        └── ouverture des contenus dans MPV (lecteur externe)
+## Architecture
+WebKitGTK  →  affiche YouTube normalement
+│
+└── intercepte les clics vidéo/playlist
+│
+└── MPV (via Flatpak) joue sans pub
 
-        
-Stack technique  
-| Composant       | Technologie               |
-| --------------- | ------------------------- |
-| Interface       | Python + GTK4 + WebKitGTK |
-| Lecteur         | MPV Flatpak               |
-| Résolution flux | yt-dlp                    |
-| Cookies         | Stockage local WebKit     |
-| Packaging       | Flatpak                   |
+---
 
-### Avertissement légal
+## Stack technique
 
-Logiciel tiers non officiel  
-Non affilié, non soutenu par YouTube ou Google  
-Utilisation soumise aux Conditions d’utilisation de YouTube  
-Certaines fonctionnalités peuvent ne pas être compatibles avec ces conditions  
-L’utilisateur est responsable de son usage  
-Les composants tiers (MPV, yt-dlp) sont indépendants et soumis à leurs propres licences
+| Composant | Technologie |
+|---|---|
+| Interface | Python + GTK4 + WebKitGTK |
+| Lecteur | MPV Flatpak |
+| Résolution flux | yt-dlp |
+| Cookies | SQLite WebKit → Netscape |
+| Packaging | Flatpak |
 
-### Données et confidentialité
+---
 
-Cookies et sessions stockés localement  
-Aucune donnée transmise à un serveur tiers par défaut  
-L’utilisateur est responsable de la sécurité de ses identifiants  
-L’utilisation d’un compte Google dans une application tierce peut présenter des risques  
-Limitation de responsabilité  
-Logiciel fourni “en l’état” (GPL-3.0)  
-Aucune garantie de fonctionnement ou de compatibilité  
-L’auteur n’est pas responsable des dommages liés à l’utilisation (dans les limites légales)
+## Avertissement légal
 
-### Projet
+- Logiciel tiers non officiel, non affilié à YouTube ou Google
+- Utilisation soumise aux Conditions d'utilisation de YouTube
+- L'utilisateur est responsable de son usage
+- Les composants tiers (MPV, yt-dlp) sont soumis à leurs propres licences
 
-Développé par blacksamdev
+---
 
-### Licence
+## Données et confidentialité
+
+- Cookies et sessions stockés localement uniquement
+- Aucune donnée transmise à un serveur tiers
+- L'utilisateur est responsable de la sécurité de ses identifiants
+
+---
+
+## Projet
+
+Développé par **blacksamdev** — en hommage à Samuel Bellamy 🏴‍☠️,
+le Prince des Pirates, capitaine du Whydah.
+
+## Licence
 
 GPL-3.0
