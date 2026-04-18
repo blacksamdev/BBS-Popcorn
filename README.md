@@ -51,6 +51,7 @@ flatpak run io.github.blacksamdev.Popcorn
 ### Architecture
 
 WebKitGTK → affichage de l’interface web
+
         └── ouverture des contenus dans MPV (lecteur externe)
         
 Stack technique
