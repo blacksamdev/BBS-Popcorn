@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import tempfile
 import subprocess
@@ -27,6 +28,17 @@ class MpvPlayer:
             return self.cookie_export_path
         return None
 
+    # ── Préparation URL ──────────────────────────
+
+    def _prepare_url(self, url: str) -> str:
+        # Si c'est une playlist → préfixe ytdl:// avec l'ID playlist
+        playlist_match = re.search(r'[?&]list=([a-zA-Z0-9_-]+)', url)
+        if playlist_match:
+            playlist_id = playlist_match.group(1)
+            print(f"[popcorn] Playlist détectée : {playlist_id}")
+            return f"ytdl://{playlist_id}"
+        return url
+
     # ── Lancement ────────────────────────────────
 
     def play(self, url: str):
@@ -39,7 +51,10 @@ class MpvPlayer:
     def _launch(self, url: str):
         GLib.idle_add(self._show_loading)
 
-        ipc_socket = tempfile.mktemp(prefix="bbspopcorn_")
+        # Utilise NamedTemporaryFile à la place de mktemp (plus sécurisé)
+        tmp = tempfile.NamedTemporaryFile(prefix="bbspopcorn_", delete=True)
+        ipc_socket = tmp.name
+        tmp.close()
 
         # MPV Flatpak
         if os.path.exists("/.flatpak-info"):
@@ -67,7 +82,7 @@ class MpvPlayer:
         # if cookie_file:
         #     cmd += ["--ytdl-raw-options=cookies=" + cookie_file]
 
-        cmd.append(url)
+        cmd.append(self._prepare_url(url))
         print(f"[popcorn] Commande : {' '.join(cmd)}")
 
         proc = subprocess.Popen(cmd)

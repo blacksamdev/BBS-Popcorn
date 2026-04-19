@@ -16,6 +16,10 @@ class CookieExporter:
         self.sqlite_path = sqlite_path
         self.output_path = output_path
 
+    def _sanitize_identifier(self, name: str) -> str:
+        """Sanitise un nom de table/colonne SQLite — accepte uniquement alphanum et _"""
+        return ''.join(c for c in name if c.isalnum() or c == '_')
+
     def detect_schema(self, cur):
         cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cur.fetchall()}
@@ -27,7 +31,8 @@ class CookieExporter:
                 return schema
 
         for table in tables:
-            cur.execute(f"PRAGMA table_info({table})")
+            safe_table = self._sanitize_identifier(table)
+            cur.execute(f"PRAGMA table_info({safe_table})")
             cols = {row[1] for row in cur.fetchall()}
             if {"host", "name", "value", "path"}.issubset(cols):
                 expires = "expiry"   if "expiry"   in cols else \
@@ -56,16 +61,25 @@ class CookieExporter:
 
             table, c_host, c_name, c_value, c_path, c_expires, c_secure = schema
 
+            # Sanitise tous les identifiants avant injection dans la requête
+            safe_table    = self._sanitize_identifier(table)
+            safe_c_host   = self._sanitize_identifier(c_host)
+            safe_c_name   = self._sanitize_identifier(c_name)
+            safe_c_value  = self._sanitize_identifier(c_value)
+            safe_c_path   = self._sanitize_identifier(c_path)
+            safe_c_expires= self._sanitize_identifier(c_expires)
+            safe_c_secure = self._sanitize_identifier(c_secure)
+
             cur.execute(f"""
                 SELECT
-                    {c_host},
-                    CASE WHEN {c_host} LIKE '.%' THEN 'TRUE' ELSE 'FALSE' END,
-                    {c_path},
-                    CASE WHEN {c_secure} = 1 THEN 'TRUE' ELSE 'FALSE' END,
-                    {c_expires},
-                    {c_name},
-                    {c_value}
-                FROM {table}
+                    {safe_c_host},
+                    CASE WHEN {safe_c_host} LIKE '.%' THEN 'TRUE' ELSE 'FALSE' END,
+                    {safe_c_path},
+                    CASE WHEN {safe_c_secure} = 1 THEN 'TRUE' ELSE 'FALSE' END,
+                    {safe_c_expires},
+                    {safe_c_name},
+                    {safe_c_value}
+                FROM {safe_table}
             """)
             rows = cur.fetchall()
             con.close()
