@@ -22,7 +22,7 @@ class YtMpvApp(Gtk.Application):
 
     def on_activate(self, app):
         self.win = Gtk.ApplicationWindow(application=app)
-        self.win.set_title("BBS Popcorn")
+        self.win.set_title("BBS pOpcOrn")
         self.win.set_default_size(1280, 800)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
