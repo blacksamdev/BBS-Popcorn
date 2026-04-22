@@ -14,13 +14,22 @@ jobs:
       - name: Install flatpak-builder
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
+          sudo apt-get install -y flatpak flatpak-builder gnupg
           sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
           sudo flatpak install -y flathub org.gnome.Platform//49 org.gnome.Sdk//49
 
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --import
+
       - name: Build Flatpak
         run: |
-          flatpak-builder --force-clean --repo=repo build-dir io.github.blacksamdev.Popcorn.json
+          flatpak-builder --force-clean \
+            --repo=repo \
+            --gpg-sign=72713F2085B47986B4E54810D2C55424E2215594 \
+            build-dir io.github.blacksamdev.Popcorn.json
 
       - name: Copy flatpakrepo file
         run: cp bbs-popcorn.flatpakrepo repo/
