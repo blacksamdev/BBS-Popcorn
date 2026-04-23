@@ -16,41 +16,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ----------------------------
-      # SYSTEM DEPENDENCIES
-      # ----------------------------
       - name: Install dependencies
         run: |
           set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      # ----------------------------
-      # FLATHUB SETUP
-      # ----------------------------
       - name: Setup Flathub
         run: |
           set -e
           flatpak remote-add --user --if-not-exists flathub \
             https://flathub.org/repo/flathub.flatpakrepo
 
-      # ----------------------------
-      # INSTALL SDK 24.08 (IMPORTANT FIX)
-      # ----------------------------
-      - name: Install SDK
+      - name: Install SDK 24.08
         run: |
           set -e
           flatpak install --user -y flathub \
             org.freedesktop.Sdk//24.08 \
             org.freedesktop.Platform//24.08
 
-      # ----------------------------
-      # BUILD FLATPAK
-      # ----------------------------
       - name: Build Flatpak
         run: |
           set -e
-
           mkdir -p repo
 
           flatpak-builder --user --force-clean \
@@ -58,55 +45,50 @@ jobs:
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      # ----------------------------
-      # VERIFY OUTPUT (important debug safety)
-      # ----------------------------
       - name: Check repo content
         run: |
           set -e
           ls -la repo
 
-      # ----------------------------
-      # UPLOAD ARTIFACT
-      # ----------------------------
-      - name: Upload Flatpak repo
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-repo
           path: repo
 
-deploy:
-  needs: build
-  runs-on: ubuntu-latest
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
 
-  steps:
-    - uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Download artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: flatpak-repo
-        path: repo
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: flatpak-repo
+          path: repo
 
-    - name: Debug downloaded artifact
-      run: ls -la repo
+      - name: Debug artifact
+        run: ls -la repo
 
-    - name: Deploy
-      run: |
-        set -e
+      - name: Deploy to gh-pages
+        run: |
+          set -e
 
-        git config user.name "github-actions"
-        git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
 
-        git fetch origin gh-pages || true
-        git checkout --orphan gh-pages
+          git fetch origin gh-pages || true
+          git checkout --orphan gh-pages
 
-        rm -rf *
+          rm -rf *
 
-        test -d repo
+          test -d repo
 
-        cp -r repo/. .
+          cp -r repo/. .
 
-        git add .
-        git commit -m "Update Flatpak repo"
-        git push -f origin gh-pages
+          git add .
+          git commit -m "Update Flatpak repo"
+          git push -f origin gh-pages
