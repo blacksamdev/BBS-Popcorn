@@ -1,4 +1,4 @@
-name: Flatpak CI
+name: Flatpak CI (Flathub Ready)
 
 on:
   push:
@@ -10,123 +10,73 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      FLATPAK_BRANCH: "24.08"
+      FLATPAK_USER: 1
 
     steps:
-      # ----------------------------
-      # CHECKOUT
-      # ----------------------------
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ----------------------------
+      # -------------------------
       # SYSTEM DEPENDENCIES
-      # ----------------------------
-      - name: Install system dependencies
+      # -------------------------
+      - name: Install system tools
         run: |
           set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      # ----------------------------
-      # FLATHUB SETUP (USER SCOPE ONLY)
-      # ----------------------------
-      - name: Setup Flathub
+      # -------------------------
+      # FLATHUB SETUP (USER ONLY)
+      # -------------------------
+      - name: Setup Flathub (user)
         run: |
           set -e
-
           flatpak --user remote-add --if-not-exists flathub \
             https://flathub.org/repo/flathub.flatpakrepo
 
-          flatpak --user update --appstream flathub || true
-
-      # ----------------------------
-      # CLEAN ENV (avoid stale runtime issues)
-      # ----------------------------
-      - name: Clean Flatpak cache
+      # -------------------------
+      # INSTALL RUNTIME + SDK
+      # -------------------------
+      - name: Install SDK
         run: |
           set -e
-          rm -rf ~/.local/share/flatpak || true
-          rm -rf ~/.cache/flatpak || true
-
-      # ----------------------------
-      # INSTALL SDK + RUNTIME 24.08
-      # ----------------------------
-      - name: Install Flatpak SDK
-        run: |
-          set -e
-
           flatpak --user install -y flathub \
             org.freedesktop.Sdk//24.08 \
-            org.freedesktop.Platform//24.08 \
-            org.freedesktop.Platform.GL.default//24.08
+            org.freedesktop.Platform//24.08
 
-      # ----------------------------
-      # VERIFY ENVIRONMENT (Flathub reviewers expect traceability)
-      # ----------------------------
-      - name: Verify Flatpak environment
+      # -------------------------
+      # VERIFY
+      # -------------------------
+      - name: Verify SDK
         run: |
-          set -e
           flatpak info org.freedesktop.Sdk//24.08
           flatpak info org.freedesktop.Platform//24.08
-          flatpak remotes --user
-          flatpak list --user
 
-      # ----------------------------
-      # GPG IMPORT (CI SAFE)
-      # ----------------------------
-      - name: Import GPG key
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        run: |
-          set -e
-
-          export GNUPGHOME=$HOME/.gnupg
-          mkdir -p "$GNUPGHOME"
-          chmod 700 "$GNUPGHOME"
-
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-
-          KEYID=$(gpg --list-secret-keys --with-colons \
-            | awk -F: '/^fpr:/ {print $10; exit}')
-
-          test -n "$KEYID"
-
-          echo "KEYID=$KEYID" >> $GITHUB_ENV
-
-          gpg --armor --export "$KEYID" > repo-signing.key
-
-      # ----------------------------
-      # BUILD (REPRODUCIBLE + CLEAN)
-      # ----------------------------
+      # -------------------------
+      # BUILD FLATPAK
+      # -------------------------
       - name: Build Flatpak
         run: |
           set -e
-
           flatpak-builder \
             --force-clean \
-            --disable-cache \
+            --user \
             --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      # ----------------------------
-      # SIGN REPO (OSTREE FORMAT REQUIRED BY FLATHUB)
-      # ----------------------------
-      - name: Sign repository
+      # -------------------------
+      # EXPORT REPO (NO GPG YET = SAFE MODE)
+      # -------------------------
+      - name: Build repo
         run: |
           set -e
+          flatpak build-update-repo repo
 
-          export GNUPGHOME=$HOME/.gnupg
-
-          flatpak build-update-repo repo \
-            --gpg-import=repo-signing.key \
-            --gpg-sign="$KEYID"
-
-      # ----------------------------
-      # ARTIFACT OUTPUT
-      # ----------------------------
-      - name: Upload artifact
+      # -------------------------
+      # ARTIFACT
+      # -------------------------
+      - name: Upload repo
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-repo
