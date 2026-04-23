@@ -7,7 +7,6 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FLATPAK_USER: "1"
 
 jobs:
   build:
@@ -20,7 +19,7 @@ jobs:
       # ----------------------------
       # SYSTEM DEPENDENCIES
       # ----------------------------
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
           set -e
           sudo apt-get update
@@ -32,28 +31,18 @@ jobs:
       - name: Setup Flathub
         run: |
           set -e
-
           flatpak remote-add --user --if-not-exists flathub \
             https://flathub.org/repo/flathub.flatpakrepo
 
       # ----------------------------
-      # INSTALL SDK + RUNTIME (IMPORTANT FIX 24.08)
+      # INSTALL SDK 24.08 (IMPORTANT FIX)
       # ----------------------------
-      - name: Install Flatpak SDK
+      - name: Install SDK
         run: |
           set -e
-
           flatpak install --user -y flathub \
             org.freedesktop.Sdk//24.08 \
             org.freedesktop.Platform//24.08
-
-      # ----------------------------
-      # VERIFY INSTALL
-      # ----------------------------
-      - name: Verify Flatpak SDK
-        run: |
-          set -e
-          flatpak list --user
 
       # ----------------------------
       # BUILD FLATPAK
@@ -62,19 +51,29 @@ jobs:
         run: |
           set -e
 
+          mkdir -p repo
+
           flatpak-builder --user --force-clean \
             --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
       # ----------------------------
+      # VERIFY OUTPUT (important debug safety)
+      # ----------------------------
+      - name: Check repo content
+        run: |
+          set -e
+          ls -la repo
+
+      # ----------------------------
       # UPLOAD ARTIFACT
       # ----------------------------
-      - name: Upload repo artifact
+      - name: Upload Flatpak repo
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-repo
-          path: repo/
+          path: repo
 
   deploy:
     needs: build
@@ -85,7 +84,7 @@ jobs:
         uses: actions/checkout@v4
 
       # ----------------------------
-      # DOWNLOAD ARTIFACT
+      # DOWNLOAD ARTIFACT FROM BUILD
       # ----------------------------
       - name: Download Flatpak repo
         uses: actions/download-artifact@v4
@@ -96,7 +95,7 @@ jobs:
       # ----------------------------
       # DEPLOY TO GH-PAGES
       # ----------------------------
-      - name: Deploy to GitHub Pages
+      - name: Deploy to gh-pages
         run: |
           set -e
 
