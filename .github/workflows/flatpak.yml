@@ -13,13 +13,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           set -e
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder gnupg rsync
+          sudo apt-get install -y flatpak flatpak-builder gnupg rsync findutils
 
       - name: Setup Flathub
         run: |
@@ -34,13 +35,13 @@ jobs:
             org.freedesktop.Sdk//24.08 \
             org.freedesktop.Platform//24.08
 
-      - name: Clean
+      - name: Prepare workspace
         run: |
           set -e
           rm -rf build-dir repo
           mkdir -p repo
 
-      - name: Build
+      - name: Build Flatpak
         run: |
           set -e
           flatpak-builder --user --force-clean \
@@ -48,9 +49,10 @@ jobs:
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      - name: Verify build output
+      - name: Verify repo
         run: |
           set -e
+          echo "Repo content:"
           ls -R repo
           test -f repo/summary
 
@@ -66,26 +68,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Download artifact (FIXED PATH)
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: flatpak-repo
-          path: ./repo
+          path: artifact
 
       - name: Debug artifact structure
         run: |
           set -e
-          echo "ROOT:"
-          ls -la
+          echo "Artifact root:"
+          ls -R artifact
 
-          echo "REPO:"
-          ls -R ./repo
-
-          test -f ./repo/summary
-
-      - name: Deploy gh-pages
+      - name: Deploy to gh-pages
         run: |
           set -e
 
@@ -97,8 +95,17 @@ jobs:
 
           rm -rf *
 
-          # FIX IMPORTANT: path explicite + sécurisé
-          cp -r ./repo/. ./
+          # 🔧 FIX ROBUSTE : détecte automatiquement le repo Flatpak
+          REPO_PATH=$(find artifact -type f -name summary -exec dirname {} \; | head -n 1)
+
+          if [ -z "$REPO_PATH" ]; then
+            echo "ERROR: Flatpak repo not found in artifact"
+            exit 1
+          fi
+
+          echo "Using repo path: $REPO_PATH"
+
+          cp -r "$REPO_PATH"/. .
 
           git add -A
           git commit -m "Update Flatpak repo" || echo "No changes"
