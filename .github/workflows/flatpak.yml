@@ -46,9 +46,11 @@ jobs:
         env:
           GNUPGHOME: /tmp/gnupg
         run: |
-          KEYID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | head -n1 | cut -d'/' -f2 | cut -d' ' -f1)
+          FPR=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
 
-          flatpak build-sign repo "$KEYID"
+          echo "Using fingerprint: $FPR"
+
+          flatpak build-sign repo "$FPR"
 
       - name: Copy flatpakrepo file
         run: cp bbs-popcorn.flatpakrepo repo/ || true
