@@ -19,7 +19,7 @@ jobs:
         run: |
           set -e
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder gnupg findutils
+          sudo apt-get install -y flatpak flatpak-builder gnupg findutils rsync
 
       - name: Setup Flathub
         run: |
@@ -33,21 +33,18 @@ jobs:
             org.freedesktop.Sdk//24.08 \
             org.freedesktop.Platform//24.08
 
-      - name: Clean workspace
+      - name: Build Flatpak repo
         run: |
           set -e
           rm -rf build-dir repo
           mkdir repo
 
-      - name: Build Flatpak (STRICT CHECK)
-        run: |
-          set -e
           flatpak-builder --user --force-clean \
             --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-          echo "Checking repo content:"
+          echo "=== REPO CONTENT ==="
           ls -R repo
 
           test -f repo/summary
@@ -72,14 +69,14 @@ jobs:
           name: flatpak-repo
           path: repo
 
-      - name: Verify artifact
+      - name: Validate repo exists
         run: |
           set -e
-          echo "Downloaded repo:"
+          echo "CHECK repo structure:"
           ls -R repo
           test -f repo/summary
 
-      - name: Deploy
+      - name: Deploy to gh-pages
         run: |
           set -e
 
@@ -91,7 +88,8 @@ jobs:
 
           rm -rf *
 
-          cp -r repo/. .
+          # ✔ IMPORTANT FIX : rsync au lieu de cp
+          rsync -a repo/ ./
 
           git add -A
           git commit -m "Update Flatpak repo" || echo "No changes"
