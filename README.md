@@ -48,7 +48,7 @@ flatpak install -y flathub io.mpv.Mpv
 
 ### yt-dlp (outil externe utilisateur)
 
-Installation (recommandée):
+Installation (recommandée) :
 ```bash
 mkdir -p ~/.local/bin
 curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
@@ -56,12 +56,12 @@ curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
 chmod a+rx ~/.local/bin/yt-dlp
 ```
 
-Activation (session courante):
+Activation (session courante) :
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Persistance (optionnel):
+Persistance (optionnel) :
 ```bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 ```
