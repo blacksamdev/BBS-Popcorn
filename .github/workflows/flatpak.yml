@@ -8,8 +8,12 @@ jobs:
   build:
     runs-on: ubuntu-22.04
 
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -20,29 +24,8 @@ jobs:
         run: |
           flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || true
 
-      - name: Import GPG key
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GNUPGHOME: /tmp/gnupg
-        run: |
-          mkdir -p "$GNUPGHOME"
-          chmod 700 "$GNUPGHOME"
-
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes \
-            --pinentry-mode loopback \
-            --import
-
-          gpg --list-secret-keys
-
       - name: Build Flatpak
-        env:
-          GNUPGHOME: /tmp/gnupg
-          PINENTRY_MODE: loopback
-          GPG_TTY: ""
         run: |
-          echo "allow-loopback-pinentry" >> /tmp/gnupg/gpg-agent.conf || true
-          gpgconf --kill gpg-agent || true
-
           flatpak-builder --force-clean \
             --user \
             --install-deps-from=flathub \
