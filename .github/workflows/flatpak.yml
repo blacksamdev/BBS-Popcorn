@@ -19,17 +19,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      - name: Add Flathub remote (required for SDK)
-        run: |
-          set -e
-          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
-      - name: Install required Flatpak SDK
-        run: |
-          set -e
-          flatpak install -y flathub org.freedesktop.Sdk//23.08
-          flatpak install -y flathub org.freedesktop.Platform//23.08
-
       - name: Import GPG key
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -49,7 +38,7 @@ jobs:
 
           echo "KEYID=$KEYID" >> $GITHUB_ENV
 
-      - name: Build Flatpak
+      - name: Build Flatpak (no remote, no install)
         run: |
           set -e
 
