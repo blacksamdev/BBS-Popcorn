@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install flatpak-builder
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
@@ -27,13 +27,16 @@ jobs:
         run: |
           mkdir -p "$GNUPGHOME"
           chmod 700 "$GNUPGHOME"
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --import
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --pinentry-mode loopback --import
           gpg --list-secret-keys
 
       - name: Build Flatpak
         env:
           GNUPGHOME: /tmp/gnupg
+          GPG_TTY: ""
         run: |
+          export PINENTRY_MODE=loopback
+
           flatpak-builder --force-clean \
             --user \
             --install-deps-from=flathub \
@@ -42,7 +45,7 @@ jobs:
             build-dir io.github.blacksamdev.Popcorn.json
 
       - name: Copy flatpakrepo file
-        run: cp bbs-popcorn.flatpakrepo repo/
+        run: cp bbs-popcorn.flatpakrepo repo/ || true
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
