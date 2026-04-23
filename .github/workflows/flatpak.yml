@@ -1,143 +1,55 @@
-name: Flatpak CI
+name: Deploy Flatpak Repo
 
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Flatpak Build & Sign on"]
+    types:
+      - completed
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout gh-pages
         uses: actions/checkout@v4
+        with:
+          ref: gh-pages
 
-      - name: Install dependencies
-        run: |
-          set -e
-          sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder gnupg
-
-      - name: Setup Flathub
-        run: |
-          set -e
-          flatpak remote-add --user --if-not-exists flathub \
-            https://flathub.org/repo/flathub.flatpakrepo
-
-      - name: Install SDK 24.08
-        run: |
-          set -e
-          flatpak install --user -y flathub \
-            org.freedesktop.Sdk//24.08 \
-            org.freedesktop.Platform//24.08
-
-      # ----------------------------
-      # GPG IMPORT
-      # ----------------------------
-      - name: Import GPG key
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        run: |
-          set -e
-
-          mkdir -p ~/.gnupg
-          chmod 700 ~/.gnupg
-
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-
-          KEYID=$(gpg --list-secret-keys --with-colons \
-            | awk -F: '/^fpr:/ {print $10; exit}')
-
-          if [ -z "$KEYID" ]; then
-            echo "ERROR: KEYID not found"
-            exit 1
-          fi
-
-          echo "KEYID=$KEYID" >> $GITHUB_ENV
-
-          gpg --armor --export "$KEYID" > repo-signing.key
-
-      # ----------------------------
-      # BUILD
-      # ----------------------------
-      - name: Build Flatpak
-        run: |
-          set -e
-
-          rm -rf build-dir repo
-          mkdir -p repo
-
-          flatpak-builder --user --force-clean \
-            --repo=repo \
-            build-dir \
-            io.github.blacksamdev.Popcorn.json
-
-      # ----------------------------
-      # SIGN REPO (CRITICAL)
-      # ----------------------------
-      - name: Sign Flatpak repo
-        run: |
-          set -e
-
-          export GNUPGHOME=$HOME/.gnupg
-
-          flatpak build-update-repo \
-            --gpg-import=repo-signing.key \
-            --gpg-sign="$KEYID" \
-            repo
-
-          echo "=== VERIFY SIGNATURE ==="
-          ls repo
-          test -f repo/summary.sig
-
-      # ----------------------------
-      # UPLOAD
-      # ----------------------------
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Download Flatpak repo artifact
+        uses: actions/download-artifact@v4
         with:
           name: flatpak-repo
           path: repo
 
+      - name: Debug repo content
+        run: |
+          echo "CHECK repo content:"
+          ls -R repo || (echo "repo folder missing" && exit 1)
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
+      - name: Ensure gh-pages content folder exists
+        run: |
+          mkdir -p deploy
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: flatpak-repo
-          path: /tmp/repo
-
-      - name: Verify artifact
+      - name: Copy repo content safely
         run: |
           set -e
-          ls -R /tmp/repo
-          test -f /tmp/repo/summary
+          if [ ! -d "repo" ]; then
+            echo "ERROR: repo folder missing after artifact download"
+            exit 1
+          fi
 
-      - name: Deploy to gh-pages
+          cp -r repo/* deploy/
+
+      - name: Commit and push gh-pages
         run: |
           set -e
-
+          cd deploy
+          git init
           git config user.name "github-actions"
-          git config user.email "actions@github.com"
-
-          git fetch origin gh-pages || true
-          git checkout --orphan gh-pages
-
-          rm -rf *
-
-          cp -r /tmp/repo/. .
-
-          git add -A
-          git commit -m "Update Flatpak repo" || echo "No changes"
-          git push -f origin gh-pages
+          git config user.email "github-actions@github.com"
+          git checkout -b gh-pages
+          git add .
+          git commit -m "Update Flatpak repo"
+          git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages
