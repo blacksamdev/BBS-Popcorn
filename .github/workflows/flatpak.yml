@@ -1,4 +1,4 @@
-name: Flatpak CI
+name: Flatpak CI (Flathub-ready)
 
 on:
   push:
@@ -7,87 +7,112 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FLATPAK_INSTALL_FLAGS: --user -y
+  GNUPGHOME: ${{ github.workspace }}/.gnupg
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # ----------------------------
-      # CHECKOUT
-      # ----------------------------
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       # ----------------------------
       # SYSTEM DEPENDENCIES
       # ----------------------------
-      - name: Install dependencies
+      - name: Install system deps
         run: |
           set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
       # ----------------------------
-      # FLATHUB SETUP (USER ONLY)
+      # FLATPAK CACHE (important)
+      # ----------------------------
+      - name: Cache Flatpak
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/flatpak
+            ~/.var/app
+          key: flatpak-${{ runner.os }}-${{ hashFiles('**/*.json') }}
+
+      # ----------------------------
+      # FLATHUB (user scope only → CI-safe)
       # ----------------------------
       - name: Setup Flathub
         run: |
           set -e
-
-          flatpak --user remote-add --if-not-exists flathub \
+          flatpak remote-add --user --if-not-exists flathub \
             https://flathub.org/repo/flathub.flatpakrepo
 
-          flatpak --user update --appstream flathub || true
-
       # ----------------------------
-      # INSTALL SDK + RUNTIME 24.08
+      # SDK / RUNTIME (FIXED 24.08)
       # ----------------------------
       - name: Install Flatpak SDK
         run: |
           set -e
-
-          flatpak --user install -y flathub \
+          flatpak install $FLATPAK_INSTALL_FLAGS flathub \
             org.freedesktop.Sdk//24.08 \
-            org.freedesktop.Platform//24.08 \
-            org.freedesktop.Platform.GL.default//24.08
+            org.freedesktop.Platform//24.08
 
       # ----------------------------
-      # VERIFY ENVIRONMENT
+      # GPG (CI SAFE + robust)
       # ----------------------------
-      - name: Verify Flatpak setup
+      - name: Import GPG key
+        if: github.event_name == 'push'
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
           set -e
-          flatpak info org.freedesktop.Sdk//24.08
-          flatpak info org.freedesktop.Platform//24.08
-          flatpak remotes --user
-          flatpak list --user
+
+          mkdir -p "$GNUPGHOME"
+          chmod 700 "$GNUPGHOME"
+
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+          KEYID=$(gpg --list-secret-keys --with-colons \
+            | awk -F: '/^fpr:/ {print $10; exit}')
+
+          if [ -z "$KEYID" ]; then
+            echo "ERROR: missing GPG KEYID"
+            exit 1
+          fi
+
+          echo "KEYID=$KEYID" >> $GITHUB_ENV
+
+          gpg --armor --export "$KEYID" > repo-signing.key
 
       # ----------------------------
       # BUILD FLATPAK
       # ----------------------------
-      - name: Build Flatpak
+      - name: Build
         run: |
           set -e
 
           flatpak-builder \
             --force-clean \
-            --user \
-            --disable-cache \
             --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
       # ----------------------------
-      # EXPORT REPO (NO SIGNING REQUIRED FOR CI VALIDATION)
+      # SIGN (only on push main)
       # ----------------------------
-      - name: Export repository
+      - name: Sign repo
+        if: github.ref == 'refs/heads/main'
         run: |
           set -e
-          flatpak build-update-repo repo
+
+          export GNUPGHOME="$GNUPGHOME"
+
+          flatpak build-update-repo repo \
+            --gpg-import=repo-signing.key \
+            --gpg-sign="$KEYID"
 
       # ----------------------------
-      # ARTIFACT OUTPUT
+      # ARTIFACT
       # ----------------------------
       - name: Upload artifact
         uses: actions/upload-artifact@v4
