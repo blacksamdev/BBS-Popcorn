@@ -1,51 +1,76 @@
-import shutil
 import subprocess
 
 
 class Updater:
     """
-    Gestion des dépendances externes (mpv / yt-dlp)
-    Compatible Flatpak Flathub-ready.
+    Gestion propre des dépendances externes Flatpak.
+    Mode Flathub-safe : détection + guidance utilisateur.
     """
 
-    @staticmethod
-    def has_binary(name: str) -> bool:
-        return shutil.which(name) is not None
+    MPV_ID = "io.mpv.Mpv"
+    YTDLP_ID = "io.github.yt-dlp.yt-dlp"
 
     # ----------------------------
-    # MPV
+    # CHECK INSTALLATION
     # ----------------------------
     @staticmethod
-    def mpv_available() -> bool:
-        return Updater.has_binary("mpv")
-
-    @staticmethod
-    def play(url: str):
-        if Updater.mpv_available():
-            subprocess.run(["mpv", url])
-        else:
-            subprocess.run(["flatpak-spawn", "--host", "mpv", url])
-
-    # ----------------------------
-    # YT-DLP
-    # ----------------------------
-    @staticmethod
-    def ytdlp_available() -> bool:
-        return Updater.has_binary("yt-dlp")
-
-    @staticmethod
-    def download(url: str):
-        if Updater.ytdlp_available():
-            subprocess.run(["yt-dlp", url])
-        else:
-            subprocess.run(["flatpak-spawn", "--host", "yt-dlp", url])
+    def is_installed(app_id: str) -> bool:
+        try:
+            subprocess.run(
+                ["flatpak", "info", app_id],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True
+            )
+            return True
+        except subprocess.CalledProcessError:
+            return False
 
     # ----------------------------
-    # Diagnostic (utile debug)
+    # STATUS GLOBAL
     # ----------------------------
     @staticmethod
     def status():
         return {
-            "mpv": Updater.mpv_available(),
-            "yt-dlp": Updater.ytdlp_available()
+            "mpv": Updater.is_installed(Updater.MPV_ID),
+            "yt-dlp": Updater.is_installed(Updater.YTDLP_ID)
         }
+
+    # ----------------------------
+    # ACTIONS UTILISATEUR
+    # ----------------------------
+    @staticmethod
+    def suggest_install(app_id: str):
+        print(f"Dependency missing: {app_id}")
+        print("Install with:")
+        print(f"  flatpak install flathub {app_id}")
+
+    # ----------------------------
+    # PLAY (MPV)
+    # ----------------------------
+    @staticmethod
+    def play(url: str):
+        if not Updater.is_installed(Updater.MPV_ID):
+            Updater.suggest_install(Updater.MPV_ID)
+            return
+
+        subprocess.run([
+            "flatpak", "run",
+            Updater.MPV_ID,
+            url
+        ])
+
+    # ----------------------------
+    # DOWNLOAD (YT-DLP)
+    # ----------------------------
+    @staticmethod
+    def download(url: str):
+        if not Updater.is_installed(Updater.YTDLP_ID):
+            Updater.suggest_install(Updater.YTDLP_ID)
+            return
+
+        subprocess.run([
+            "flatpak", "run",
+            Updater.YTDLP_ID,
+            url
+        ])

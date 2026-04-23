@@ -7,22 +7,6 @@
 
   "modules": [
     {
-      "name": "yt-dlp",
-      "buildsystem": "simple",
-      "build-commands": [
-        "install -Dm755 yt-dlp /app/bin/yt-dlp"
-      ],
-      "sources": [
-        {
-          "type": "file",
-          "url": "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp",
-          "dest-filename": "yt-dlp",
-          "sha256": "3bda0968a01cde70d26720653003b28553c71be14dcb2e5f4c24e9921fdad745"
-        }
-      ]
-    },
-
-    {
       "name": "popcorn",
       "buildsystem": "simple",
       "build-commands": [

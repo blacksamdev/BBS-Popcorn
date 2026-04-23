@@ -7,13 +7,15 @@ def main():
     status = Updater.status()
     print("Dependencies:", status)
 
-    # Exemple d’usage
     url = "https://example.com/video"
 
+    if not status["mpv"]:
+        Updater.suggest_install(Updater.MPV_ID)
+
+    if not status["yt-dlp"]:
+        Updater.suggest_install(Updater.YTDLP_ID)
+
     if status["mpv"]:
-        Updater.play(url)
-    else:
-        print("mpv non disponible (fallback flatpak-spawn)")
         Updater.play(url)
 
 
