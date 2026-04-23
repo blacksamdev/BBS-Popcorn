@@ -8,12 +8,8 @@ jobs:
   build:
     runs-on: ubuntu-22.04
 
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -22,15 +18,37 @@ jobs:
 
       - name: Setup Flatpak (user mode)
         run: |
-          flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || true
+          flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GNUPGHOME: /tmp/gnupg
+        run: |
+          mkdir -p "$GNUPGHOME"
+          chmod 700 "$GNUPGHOME"
+
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --import
+
+          gpg --list-secret-keys
 
       - name: Build Flatpak
+        env:
+          GNUPGHOME: /tmp/gnupg
         run: |
           flatpak-builder --force-clean \
             --user \
             --install-deps-from=flathub \
             --repo=repo \
             build-dir io.github.blacksamdev.Popcorn.json
+
+      - name: Sign repository
+        env:
+          GNUPGHOME: /tmp/gnupg
+        run: |
+          KEYID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | head -n1 | cut -d'/' -f2 | cut -d' ' -f1)
+
+          flatpak build-sign repo "$KEYID"
 
       - name: Copy flatpakrepo file
         run: cp bbs-popcorn.flatpakrepo repo/ || true
