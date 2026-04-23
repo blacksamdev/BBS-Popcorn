@@ -1,63 +1,57 @@
-name: Build and publish Flatpak repo
+name: Flatpak Build & Sign
 
 on:
   push:
-    branches: [main]
+    branches: [ "main" ]
+  pull_request:
 
 jobs:
-  build:
-    runs-on: ubuntu-22.04
+  flatpak:
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      - name: Setup Flatpak (user mode)
+      - name: Add Flathub remote
         run: |
-          flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
-      - name: Import GPG key
+      - name: Setup GPG key
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GNUPGHOME: /tmp/gnupg
         run: |
-          mkdir -p "$GNUPGHOME"
-          chmod 700 "$GNUPGHOME"
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
 
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --import
+          # récupération du KEYID (PAS fingerprint)
+          KEYID=$(gpg --list-secret-keys --keyid-format LONG | awk '/sec/ {split($2,a,"/"); print a[2]; exit}')
 
-          gpg --list-secret-keys
+          echo "KEYID=$KEYID" >> $GITHUB_ENV
+          echo "Using KEYID: $KEYID"
 
       - name: Build Flatpak
-        env:
-          GNUPGHOME: /tmp/gnupg
         run: |
-          flatpak-builder --force-clean \
-            --user \
-            --install-deps-from=flathub \
-            --repo=repo \
-            build-dir io.github.blacksamdev.Popcorn.json
+          flatpak-builder --repo=repo --force-clean build-dir io.github.blacksamdev.Popcorn.json
 
-      - name: Sign repository
-        env:
-          GNUPGHOME: /tmp/gnupg
+      - name: Update repo metadata
         run: |
-          FPR=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
+          flatpak build-update-repo repo
 
-          echo "Using fingerprint: $FPR"
+      - name: Sign Flatpak repo
+        run: |
+          flatpak build-sign repo "$KEYID"
 
-          flatpak build-sign repo "$FPR"
+      - name: Export signed repo
+        run: |
+          tar -czf repo.tar.gz repo
 
-      - name: Copy flatpakrepo file
-        run: cp bbs-popcorn.flatpakrepo repo/ || true
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./repo
-          publish_branch: gh-pages
+          name: flatpak-repo
+          path: repo.tar.gz
