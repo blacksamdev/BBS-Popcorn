@@ -8,81 +8,24 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      GNUPGHOME: ${{ github.workspace }}/.gnupg
-
     steps:
-      # -------------------------
-      # Checkout
-      # -------------------------
       - name: Checkout
         uses: actions/checkout@v4
 
-      # -------------------------
-      # Dependencies
-      # -------------------------
-      - name: Install system deps
+      - name: Install deps
         run: |
-          set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      # -------------------------
-      # Flathub setup (user only)
-      # -------------------------
-      - name: Setup Flathub
-        run: |
-          set -e
-          flatpak remote-add --user --if-not-exists flathub \
-            https://flathub.org/repo/flathub.flatpakrepo
-
-      # -------------------------
-      # Install SDK 24.08 (IMPORTANT FIX)
-      # -------------------------
-      - name: Install SDK
-        run: |
-          set -e
-          flatpak install --user -y flathub \
-            org.freedesktop.Sdk//24.08 \
-            org.freedesktop.Platform//24.08
-
-      # -------------------------
-      # Build Flatpak
-      # -------------------------
       - name: Build Flatpak
         run: |
-          set -e
+          flatpak-builder --force-clean --repo=repo build-dir io.github.blacksamdev.Popcorn.json
 
-          rm -rf build-dir repo
-
-          flatpak-builder \
-            --force-clean \
-            --user \
-            --install-deps-from=flathub \
-            --repo=repo \
-            build-dir \
-            io.github.blacksamdev.Popcorn.json
-
-      # -------------------------
-      # Generate repo metadata
-      # -------------------------
-      - name: Update repo metadata
-        run: |
-          set -e
-
-          flatpak build-update-repo \
-            --generate-static-deltas \
-            repo
-
-      # -------------------------
-      # Upload artifact (debug + review)
-      # -------------------------
-      - name: Upload repo artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-repo
-          path: repo
+          path: repo/
 
   deploy:
     needs: build
@@ -98,10 +41,7 @@ jobs:
           name: flatpak-repo
           path: repo
 
-      # -------------------------
-      # Deploy to gh-pages (Flatpak repo)
-      # -------------------------
-      - name: Deploy to GitHub Pages
+      - name: Deploy to gh-pages
         run: |
           set -e
 
@@ -114,7 +54,12 @@ jobs:
 
           rm -rf *
 
-          cp -r repo/* .
+          if [ ! -d repo ] || [ -z "$(ls -A repo)" ]; then
+            echo "ERROR: repo missing"
+            exit 1
+          fi
+
+          cp -r repo/. .
 
           git add .
 
