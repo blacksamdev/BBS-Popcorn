@@ -11,12 +11,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install flatpak-builder
+      - name: Install flatpak + SDK
         run: |
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
-          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak install -y flathub org.gnome.Platform//49 org.gnome.Sdk//49
+
+          flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+          flatpak install -y flathub \
+            org.freedesktop.Platform//23.08 \
+            org.freedesktop.Sdk//23.08
 
       - name: Import GPG key
         env:
