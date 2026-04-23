@@ -13,18 +13,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
           set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      - name: Add Flathub (user scope)
+      - name: Setup Flathub (user scope)
         run: |
           set -e
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
-      - name: Install Flatpak SDK + Platform
+      - name: Install SDK
         run: |
           set -e
           flatpak install --user -y flathub org.freedesktop.Sdk//23.08
@@ -43,7 +43,6 @@ jobs:
 
           if [ -z "$KEYID" ]; then
             echo "ERROR: KEYID not found"
-            gpg --list-secret-keys
             exit 1
           fi
 
@@ -52,22 +51,18 @@ jobs:
       - name: Build Flatpak
         run: |
           set -e
-
           flatpak-builder \
             --repo=repo \
             --force-clean \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      - name: Update repo
+      - name: Update repo + sign
         run: |
           set -e
-          flatpak build-update-repo repo
-
-      - name: Sign repo
-        run: |
-          set -e
-          flatpak build-sign repo "$KEYID"
+          flatpak build-update-repo \
+            --gpg-sign="$KEYID" \
+            repo
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
