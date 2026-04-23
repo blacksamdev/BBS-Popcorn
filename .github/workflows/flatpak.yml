@@ -13,8 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -35,25 +34,24 @@ jobs:
             org.freedesktop.Sdk//24.08 \
             org.freedesktop.Platform//24.08
 
-      - name: Clean workspace
+      - name: Clean
         run: |
           set -e
           rm -rf build-dir repo
           mkdir -p repo
 
-      - name: Build Flatpak
+      - name: Build
         run: |
           set -e
-
           flatpak-builder --user --force-clean \
             --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      - name: Verify repo
+      - name: Verify build output
         run: |
           set -e
-          ls -la repo
+          ls -R repo
           test -f repo/summary
 
       - name: Upload artifact
@@ -68,22 +66,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Download artifact
+      - name: Download artifact (FIXED PATH)
         uses: actions/download-artifact@v4
         with:
           name: flatpak-repo
-          path: repo
+          path: ./repo
 
-      - name: Verify artifact
+      - name: Debug artifact structure
         run: |
           set -e
-          ls -la repo
-          test -f repo/summary
+          echo "ROOT:"
+          ls -la
 
-      - name: Deploy to gh-pages
+          echo "REPO:"
+          ls -R ./repo
+
+          test -f ./repo/summary
+
+      - name: Deploy gh-pages
         run: |
           set -e
 
@@ -95,8 +97,8 @@ jobs:
 
           rm -rf *
 
-          # FIX IMPORTANT (robuste et fiable)
-          rsync -a repo/ ./
+          # FIX IMPORTANT: path explicite + sécurisé
+          cp -r ./repo/. ./
 
           git add -A
           git commit -m "Update Flatpak repo" || echo "No changes"
