@@ -13,14 +13,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           set -e
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder gnupg findutils rsync
+          sudo apt-get install -y flatpak flatpak-builder gnupg
 
       - name: Setup Flathub
         run: |
@@ -28,34 +28,75 @@ jobs:
           flatpak remote-add --user --if-not-exists flathub \
             https://flathub.org/repo/flathub.flatpakrepo
 
-      - name: Install Flatpak SDK 24.08
+      - name: Install SDK 24.08
         run: |
           set -e
           flatpak install --user -y flathub \
             org.freedesktop.Sdk//24.08 \
             org.freedesktop.Platform//24.08
 
-      - name: Prepare build environment
+      # ----------------------------
+      # GPG IMPORT
+      # ----------------------------
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
           set -e
-          rm -rf build-dir repo
-          mkdir -p repo
 
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+          KEYID=$(gpg --list-secret-keys --with-colons \
+            | awk -F: '/^fpr:/ {print $10; exit}')
+
+          if [ -z "$KEYID" ]; then
+            echo "ERROR: KEYID not found"
+            exit 1
+          fi
+
+          echo "KEYID=$KEYID" >> $GITHUB_ENV
+
+          gpg --armor --export "$KEYID" > repo-signing.key
+
+      # ----------------------------
+      # BUILD
+      # ----------------------------
       - name: Build Flatpak
         run: |
           set -e
+
+          rm -rf build-dir repo
+          mkdir -p repo
 
           flatpak-builder --user --force-clean \
             --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-          echo "=== VERIFY REPO ==="
-          ls -R repo
+      # ----------------------------
+      # SIGN REPO (CRITICAL)
+      # ----------------------------
+      - name: Sign Flatpak repo
+        run: |
+          set -e
 
-          test -f repo/summary
+          export GNUPGHOME=$HOME/.gnupg
 
+          flatpak build-update-repo \
+            --gpg-import=repo-signing.key \
+            --gpg-sign="$KEYID" \
+            repo
 
+          echo "=== VERIFY SIGNATURE ==="
+          ls repo
+          test -f repo/summary.sig
+
+      # ----------------------------
+      # UPLOAD
+      # ----------------------------
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -68,10 +109,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download Flatpak artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: flatpak-repo
@@ -80,7 +121,6 @@ jobs:
       - name: Verify artifact
         run: |
           set -e
-          echo "=== DOWNLOADED ARTIFACT ==="
           ls -R /tmp/repo
           test -f /tmp/repo/summary
 
@@ -96,9 +136,8 @@ jobs:
 
           rm -rf *
 
-          # SAFE COPY (no relative path issues)
           cp -r /tmp/repo/. .
 
           git add -A
-          git commit -m "Update Flatpak repo" || echo "No changes to commit"
+          git commit -m "Update Flatpak repo" || echo "No changes"
           git push -f origin gh-pages
