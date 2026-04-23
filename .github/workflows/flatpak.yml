@@ -45,7 +45,7 @@ jobs:
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      - name: Check repo content
+      - name: Verify repo
         run: |
           set -e
           ls -la repo
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Download artifact
@@ -70,25 +70,42 @@ jobs:
           name: flatpak-repo
           path: repo
 
-      - name: Debug artifact
-        run: ls -la repo
+      - name: Validate artifact
+        run: |
+          set -e
+          echo "=== repo content ==="
+          ls -la repo
+          test -d repo
 
-      - name: Deploy to gh-pages
+      - name: Deploy to gh-pages (SAFE MODE)
         run: |
           set -e
 
           git config user.name "github-actions"
           git config user.email "actions@github.com"
 
+          # ensure gh-pages exists
           git fetch origin gh-pages || true
-          git checkout --orphan gh-pages
+
+          # safer than orphan (IMPORTANT FIX)
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+          fi
 
           rm -rf *
 
-          test -d repo
-
           cp -r repo/. .
 
+          # IMPORTANT: avoid empty commit crash
+          if [ -z "$(ls -A .)" ]; then
+            echo "ERROR: nothing to deploy"
+            exit 1
+          fi
+
           git add .
-          git commit -m "Update Flatpak repo"
+
+          git commit -m "Update Flatpak repo" || echo "No changes to commit"
+
           git push -f origin gh-pages
