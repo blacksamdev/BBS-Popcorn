@@ -9,35 +9,72 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      FLATPAK_INSTALL_FLAGS: --user -y
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      # ----------------------------
+      # SYSTEM DEPENDENCIES
+      # ----------------------------
+      - name: Install system dependencies
         run: |
           set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      - name: Setup Flathub (user)
+      # ----------------------------
+      # FLATPAK CACHE (important)
+      # ----------------------------
+      - name: Cache Flatpak
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/flatpak
+          key: flatpak-${{ runner.os }}-${{ hashFiles('**/*.json') }}
+
+      # ----------------------------
+      # FLATHUB SETUP
+      # ----------------------------
+      - name: Setup Flathub
         run: |
           set -e
-          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak remote-add --user --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
 
-      - name: Install SDK
+      # ----------------------------
+      # INSTALL RUNTIME + SDK
+      # ----------------------------
+      - name: Install Flatpak runtime and SDK
         run: |
           set -e
-          flatpak install --user -y flathub org.freedesktop.Sdk//24.08
-          flatpak install --user -y flathub org.freedesktop.Platform//24.08
 
-      - name: Import GPG key (CI-safe)
+          flatpak install $FLATPAK_INSTALL_FLAGS flathub \
+            org.freedesktop.Sdk//24.08 \
+            org.freedesktop.Platform//24.08
+
+      # ----------------------------
+      # VERIFY ENVIRONMENT
+      # ----------------------------
+      - name: Verify Flatpak environment
+        run: |
+          set -e
+          flatpak info org.freedesktop.Sdk//24.08
+          flatpak info org.freedesktop.Platform//24.08
+
+      # ----------------------------
+      # GPG IMPORT (ROBUST)
+      # ----------------------------
+      - name: Import GPG key
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
           set -e
 
-          mkdir -p ~/.gnupg
-          chmod 700 ~/.gnupg
+          export GNUPGHOME=$HOME/.gnupg
+          mkdir -p "$GNUPGHOME"
+          chmod 700 "$GNUPGHOME"
 
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
 
@@ -45,37 +82,44 @@ jobs:
             | awk -F: '/^fpr:/ {print $10; exit}')
 
           if [ -z "$KEYID" ]; then
-            echo "ERROR: KEYID not found"
+            echo "ERROR: GPG KEYID not found"
             exit 1
           fi
 
           echo "KEYID=$KEYID" >> $GITHUB_ENV
 
-          # export public key for OSTree signing
           gpg --armor --export "$KEYID" > repo-signing.key
 
+      # ----------------------------
+      # FLATPAK BUILD
+      # ----------------------------
       - name: Build Flatpak
         run: |
           set -e
 
           flatpak-builder \
-            --repo=repo \
             --force-clean \
+            --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      - name: Update repo + sign (OSTree compatible)
+      # ----------------------------
+      # SIGN & UPDATE REPO
+      # ----------------------------
+      - name: Sign repository
         run: |
           set -e
 
           export GNUPGHOME=$HOME/.gnupg
 
-          flatpak build-update-repo \
+          flatpak build-update-repo repo \
             --gpg-import=repo-signing.key \
-            --gpg-sign="$KEYID" \
-            repo
+            --gpg-sign="$KEYID"
 
-      - name: Upload artifact
+      # ----------------------------
+      # ARTIFACT OUTPUT
+      # ----------------------------
+      - name: Upload Flatpak repo
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-repo
