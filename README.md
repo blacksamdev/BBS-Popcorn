@@ -57,7 +57,7 @@ flatpak run io.github.blacksamdev.Popcorn
 ```
 WebKitGTK  →  affiche YouTube normalement
      │
-     └── intercepte les clics vidéo/playlist
+     └── transfère les clics vidéo/playlist
                │
                └── MPV (via Flatpak) joue le contenu
 ```
