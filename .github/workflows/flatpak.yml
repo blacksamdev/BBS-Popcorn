@@ -21,10 +21,16 @@ jobs:
       - name: Import GPG key
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GNUPGHOME: /tmp/gnupg
         run: |
-          echo "$GPG_PRIVATE_KEY" | gpg --import
+          mkdir -p "$GNUPGHOME"
+          chmod 700 "$GNUPGHOME"
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --import
+          gpg --list-secret-keys
 
       - name: Build Flatpak
+        env:
+          GNUPGHOME: /tmp/gnupg
         run: |
           flatpak-builder --force-clean \
             --repo=repo \
