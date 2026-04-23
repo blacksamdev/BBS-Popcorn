@@ -13,14 +13,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           set -e
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder gnupg rsync findutils
+          sudo apt-get install -y flatpak flatpak-builder gnupg findutils rsync
 
       - name: Setup Flathub
         run: |
@@ -35,7 +35,7 @@ jobs:
             org.freedesktop.Sdk//24.08 \
             org.freedesktop.Platform//24.08
 
-      - name: Prepare workspace
+      - name: Prepare build dirs
         run: |
           set -e
           rm -rf build-dir repo
@@ -52,7 +52,6 @@ jobs:
       - name: Verify repo
         run: |
           set -e
-          echo "Repo content:"
           ls -R repo
           test -f repo/summary
 
@@ -68,19 +67,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: flatpak-repo
-          path: repo
 
       - name: Debug workspace
         run: |
           set -e
-          echo "Workspace:"
+          echo "Workspace structure:"
           ls -R
 
       - name: Deploy to gh-pages
@@ -95,14 +93,17 @@ jobs:
 
           rm -rf *
 
-          # 🔧 FIX FINAL : on ne dépend PLUS de artifact/, on utilise repo direct
-          if [ ! -f repo/summary ]; then
-            echo "ERROR: Flatpak repo missing"
+          # 🔧 SOLUTION ROBUSTE : on détecte automatiquement le repo Flatpak
+          REPO_PATH=$(find . -type f -name summary -exec dirname {} \; | head -n 1)
+
+          if [ -z "$REPO_PATH" ]; then
+            echo "ERROR: Flatpak repo not found anywhere"
             exit 1
           fi
 
-          echo "Deploying Flatpak repo..."
-          cp -r repo/. .
+          echo "Using repo: $REPO_PATH"
+
+          cp -r "$REPO_PATH"/. .
 
           git add -A
           git commit -m "Update Flatpak repo" || echo "No changes"
