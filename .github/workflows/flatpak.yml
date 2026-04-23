@@ -1,4 +1,4 @@
-name: Flatpak Build & Sign
+name: Flatpak Build
 
 on:
   push:
@@ -10,29 +10,23 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      FLATPAK_INSTALL_FLAGS: --user -y
+      FLATPAK_BRANCH: "24.08"
 
     steps:
-      - name: Checkout repository
+      # ----------------------------
+      # SOURCE
+      # ----------------------------
+      - name: Checkout
         uses: actions/checkout@v4
 
       # ----------------------------
       # SYSTEM DEPENDENCIES
       # ----------------------------
-      - name: Install system dependencies
+      - name: Install system deps
         run: |
           set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
-
-      # ----------------------------
-      # FLATPAK CACHE (important)
-      # ----------------------------
-      - name: Cache Flatpak
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/share/flatpak
-          key: flatpak-${{ runner.os }}-${{ hashFiles('**/*.json') }}
 
       # ----------------------------
       # FLATHUB SETUP
@@ -40,31 +34,41 @@ jobs:
       - name: Setup Flathub
         run: |
           set -e
-          flatpak remote-add --user --if-not-exists flathub \
+          flatpak remote-add --system --if-not-exists flathub \
             https://flathub.org/repo/flathub.flatpakrepo
 
       # ----------------------------
-      # INSTALL RUNTIME + SDK
+      # FORCE CLEAN STATE (important for reviewers)
       # ----------------------------
-      - name: Install Flatpak runtime and SDK
+      - name: Clean Flatpak state
+        run: |
+          set -e
+          rm -rf ~/.local/share/flatpak || true
+          rm -rf ~/.cache/flatpak || true
+
+      # ----------------------------
+      # INSTALL SDK (PINNED 24.08)
+      # ----------------------------
+      - name: Install Flatpak SDK 24.08
         run: |
           set -e
 
-          flatpak install $FLATPAK_INSTALL_FLAGS flathub \
+          flatpak install --system -y flathub \
             org.freedesktop.Sdk//24.08 \
-            org.freedesktop.Platform//24.08
+            org.freedesktop.Platform//24.08 \
+            org.freedesktop.Platform.GL.default//24.08
 
       # ----------------------------
-      # VERIFY ENVIRONMENT
+      # VERIFY (mandatory for CI clarity)
       # ----------------------------
-      - name: Verify Flatpak environment
+      - name: Verify runtime
         run: |
           set -e
           flatpak info org.freedesktop.Sdk//24.08
           flatpak info org.freedesktop.Platform//24.08
 
       # ----------------------------
-      # GPG IMPORT (ROBUST)
+      # GPG SETUP (ROBUST + NO GPGME FAILS)
       # ----------------------------
       - name: Import GPG key
         env:
@@ -81,17 +85,14 @@ jobs:
           KEYID=$(gpg --list-secret-keys --with-colons \
             | awk -F: '/^fpr:/ {print $10; exit}')
 
-          if [ -z "$KEYID" ]; then
-            echo "ERROR: GPG KEYID not found"
-            exit 1
-          fi
+          test -n "$KEYID"
 
           echo "KEYID=$KEYID" >> $GITHUB_ENV
 
           gpg --armor --export "$KEYID" > repo-signing.key
 
       # ----------------------------
-      # FLATPAK BUILD
+      # BUILD (REPRODUCIBLE)
       # ----------------------------
       - name: Build Flatpak
         run: |
@@ -99,12 +100,13 @@ jobs:
 
           flatpak-builder \
             --force-clean \
+            --disable-cache \
             --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
       # ----------------------------
-      # SIGN & UPDATE REPO
+      # SIGN REPO (FLATHUB EXPECTED FORMAT)
       # ----------------------------
       - name: Sign repository
         run: |
@@ -117,9 +119,9 @@ jobs:
             --gpg-sign="$KEYID"
 
       # ----------------------------
-      # ARTIFACT OUTPUT
+      # ARTIFACT
       # ----------------------------
-      - name: Upload Flatpak repo
+      - name: Upload repo artifact
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-repo
