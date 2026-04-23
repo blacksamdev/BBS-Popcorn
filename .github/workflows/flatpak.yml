@@ -19,7 +19,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      - name: Setup Flathub
+      - name: Setup Flathub (user)
         run: |
           set -e
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -30,36 +30,48 @@ jobs:
           flatpak install --user -y flathub org.freedesktop.Sdk//23.08
           flatpak install --user -y flathub org.freedesktop.Platform//23.08
 
-      - name: Import + TRUST GPG key (IMPORTANT FIX)
+      - name: Import GPG key (CI-safe)
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
           set -e
 
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
 
-          KEYID=$(gpg --list-secret-keys --keyid-format LONG \
-            | awk '/sec/ {split($2,a,"/"); print a[2]; exit}')
+          KEYID=$(gpg --list-secret-keys --with-colons \
+            | awk -F: '/^fpr:/ {print $10; exit}')
+
+          if [ -z "$KEYID" ]; then
+            echo "ERROR: KEYID not found"
+            exit 1
+          fi
 
           echo "KEYID=$KEYID" >> $GITHUB_ENV
 
-          # IMPORTANT: trust key for signing
-          echo -e "5\ny\n" | gpg --batch --command-fd 0 --edit-key "$KEYID" trust quit
+          # export public key for OSTree signing
+          gpg --armor --export "$KEYID" > repo-signing.key
 
       - name: Build Flatpak
         run: |
           set -e
+
           flatpak-builder \
             --repo=repo \
             --force-clean \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      - name: Sign repository
+      - name: Update repo + sign (OSTree compatible)
         run: |
           set -e
 
+          export GNUPGHOME=$HOME/.gnupg
+
           flatpak build-update-repo \
+            --gpg-import=repo-signing.key \
             --gpg-sign="$KEYID" \
             repo
 
