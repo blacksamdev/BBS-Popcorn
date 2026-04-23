@@ -2,11 +2,11 @@ name: Flatpak Build & Sign
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
 
 jobs:
-  flatpak:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -15,39 +15,64 @@ jobs:
 
       - name: Install dependencies
         run: |
+          set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      - name: Add Flathub remote
+      - name: Setup Flathub
         run: |
+          set -e
           flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
-      - name: Setup GPG key
+      - name: Install Flatpak runtime dependencies
+        run: |
+          set -e
+          flatpak install -y flathub org.freedesktop.Platform || true
+          flatpak install -y flathub org.freedesktop.Sdk || true
+
+      - name: Import GPG key
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
+          set -e
+
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
 
-          # récupération du KEYID (PAS fingerprint)
-          KEYID=$(gpg --list-secret-keys --keyid-format LONG | awk '/sec/ {split($2,a,"/"); print a[2]; exit}')
+          KEYID=$(gpg --list-secret-keys --keyid-format LONG \
+            | awk '/sec/ {split($2,a,"/"); print a[2]; exit}')
+
+          if [ -z "$KEYID" ]; then
+            echo "ERROR: KEYID not found"
+            gpg --list-secret-keys
+            exit 1
+          fi
 
           echo "KEYID=$KEYID" >> $GITHUB_ENV
           echo "Using KEYID: $KEYID"
 
       - name: Build Flatpak
         run: |
-          flatpak-builder --repo=repo --force-clean build-dir io.github.blacksamdev.Popcorn.json
+          set -e
 
-      - name: Update repo metadata
+          flatpak-builder \
+            --repo=repo \
+            --force-clean \
+            build-dir \
+            io.github.blacksamdev.Popcorn.json
+
+      - name: Update repository
         run: |
+          set -e
           flatpak build-update-repo repo
 
-      - name: Sign Flatpak repo
+      - name: Sign repository
         run: |
+          set -e
           flatpak build-sign repo "$KEYID"
 
-      - name: Export signed repo
+      - name: Create artifact
         run: |
+          set -e
           tar -czf repo.tar.gz repo
 
       - name: Upload artifact
