@@ -1,4 +1,4 @@
-name: Flatpak Build
+name: Flatpak CI
 
 on:
   push:
@@ -11,6 +11,7 @@ jobs:
 
     env:
       FLATPAK_BRANCH: "24.08"
+      FLATPAK_OPTS: "--user -y"
 
     steps:
       # ----------------------------
@@ -22,44 +23,44 @@ jobs:
       # ----------------------------
       # SYSTEM DEPENDENCIES
       # ----------------------------
-      - name: Install system deps
+      - name: Install dependencies
         run: |
           set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
       # ----------------------------
-      # FLATHUB SETUP
+      # FLATPAK USER SETUP (IMPORTANT: NO --system)
       # ----------------------------
-      - name: Setup Flathub
+      - name: Setup Flathub (user only)
         run: |
           set -e
-          flatpak remote-add --system --if-not-exists flathub \
+          flatpak remote-add --user --if-not-exists flathub \
             https://flathub.org/repo/flathub.flatpakrepo
 
       # ----------------------------
-      # FORCE CLEAN STATE (important for reviewers)
+      # CLEAN ENV (avoid stale runtime issues)
       # ----------------------------
-      - name: Clean Flatpak state
+      - name: Clean Flatpak cache
         run: |
           set -e
           rm -rf ~/.local/share/flatpak || true
           rm -rf ~/.cache/flatpak || true
 
       # ----------------------------
-      # INSTALL SDK (PINNED 24.08)
+      # INSTALL RUNTIME + SDK (PINNED 24.08)
       # ----------------------------
-      - name: Install Flatpak SDK 24.08
+      - name: Install SDK 24.08
         run: |
           set -e
 
-          flatpak install --system -y flathub \
+          flatpak install $FLATPAK_OPTS flathub \
             org.freedesktop.Sdk//24.08 \
             org.freedesktop.Platform//24.08 \
             org.freedesktop.Platform.GL.default//24.08
 
       # ----------------------------
-      # VERIFY (mandatory for CI clarity)
+      # VERIFY (mandatory for Flathub review traceability)
       # ----------------------------
       - name: Verify runtime
         run: |
@@ -68,7 +69,7 @@ jobs:
           flatpak info org.freedesktop.Platform//24.08
 
       # ----------------------------
-      # GPG SETUP (ROBUST + NO GPGME FAILS)
+      # GPG IMPORT (CI-safe, no GPGME failure mode)
       # ----------------------------
       - name: Import GPG key
         env:
@@ -92,7 +93,7 @@ jobs:
           gpg --armor --export "$KEYID" > repo-signing.key
 
       # ----------------------------
-      # BUILD (REPRODUCIBLE)
+      # FLATPAK BUILD (REPRODUCIBLE MODE)
       # ----------------------------
       - name: Build Flatpak
         run: |
@@ -106,9 +107,9 @@ jobs:
             io.github.blacksamdev.Popcorn.json
 
       # ----------------------------
-      # SIGN REPO (FLATHUB EXPECTED FORMAT)
+      # SIGN REPOSITORY (FLATHUB EXPECTED OSTREE FORMAT)
       # ----------------------------
-      - name: Sign repository
+      - name: Sign repo
         run: |
           set -e
 
@@ -119,9 +120,9 @@ jobs:
             --gpg-sign="$KEYID"
 
       # ----------------------------
-      # ARTIFACT
+      # ARTIFACT (review/debug only)
       # ----------------------------
-      - name: Upload repo artifact
+      - name: Upload repo
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-repo
