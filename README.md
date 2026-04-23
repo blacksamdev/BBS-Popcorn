@@ -2,21 +2,21 @@
 
 **YouTube via MPV**
 
-BBS pOpcOrn est un client YouTube Linux basé sur WebKitGTK.  
-Il affiche l’interface YouTube dans une fenêtre GTK et redirige la lecture vidéo vers MPV pour une lecture externe optimisée.
+BBS pOpcOrn est un client YouTube Linux basé sur WebKitGTK.
+Il affiche l’interface YouTube dans une fenêtre GTK et délègue la lecture vidéo à MPV via des flux résolus par yt-dlp.
 
-L’objectif est de fournir une expérience légère et fluide, sans navigateur complet, en s’appuyant sur des composants externes.
+L’objectif est de proposer une interface légère sans navigateur complet, en s’appuyant sur des composants système et utilisateurs.
 
 ---
 
 ## Fonctionnement
 
 - Interface YouTube via WebKitGTK
-- Navigation et recherche dans l’interface officielle
-- Lecture des vidéos via MPV (lecteur externe)
+- Navigation et recherche via l’interface web officielle
+- Lecture vidéo via MPV (process externe)
 - Résolution des flux via yt-dlp
 - Support des playlists et vidéos individuelles
-- Gestion des cookies de session locale via WebKitGTK
+- Stockage des cookies via WebKitGTK (local uniquement)
 
 ---
 
@@ -29,10 +29,10 @@ L’objectif est de fournir une expérience légère et fluide, sans navigateur 
 
 ## Dépendances externes
 
-Ces composants doivent être installés sur le système ou via Flatpak :
+Ces composants ne sont pas fournis par l’application et doivent être installés séparément :
 
 - MPV (Flatpak recommandé)
-- yt-dlp (outil système disponible dans le PATH)
+- yt-dlp (accessible dans le PATH utilisateur)
 
 ---
 
@@ -40,31 +40,30 @@ Ces composants doivent être installés sur le système ou via Flatpak :
 
 ### MPV (Flatpak recommandé)
 
-Installation utilisateur (recommandé) :
+Installation :
 ```bash
-flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user flathub io.mpv.Mpv
-```
-Installation système :
-```bash
-flatpak install flathub io.mpv.Mpv
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+flatpak install -y flathub io.mpv.Mpv
 ```
 
-### yt-dlp (outil externe requis sur le système hôte)
+### yt-dlp (outil externe utilisateur)
 
-_yt-dlp doit être installé sur le système (accessible dans le PATH de l’utilisateur)._
+Installation (recommandée):
+```bash
+mkdir -p ~/.local/bin
+curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+  -o ~/.local/bin/yt-dlp
+chmod a+rx ~/.local/bin/yt-dlp
+```
 
-Debian / Ubuntu / Mint :
+Activation (session courante):
 ```bash
-apt install yt-dlp
+export PATH="$HOME/.local/bin:$PATH"
 ```
-Fedora :
+
+Persistance (optionnel):
 ```bash
-dnf install yt-dlp
-```
-Arch :
-```bash
-pacman -S yt-dlp
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 ```
 
 ---
@@ -111,7 +110,7 @@ WebKitGTK (interface YouTube)
         │
         ├── interactions utilisateur
         │
-        ├── yt-dlp (outil externe système)
+        ├── yt-dlp (outil externe utilisateur)
         │
         └── MPV (outil externe)
 ```
@@ -124,7 +123,7 @@ WebKitGTK (interface YouTube)
 |---|---|
 | Interface | Python + GTK4 + WebKitGTK |
 | Lecteur | MPV (Flatpak) |
-| Résolution flux | yt-dlp (système) |
+| Résolution flux | yt-dlp (outil externe utilisateur) |
 | Cookies | WebKitGTK stockage local |
 | Packaging | Flatpak |
 | Distribution | GitHub Pages |
@@ -142,7 +141,7 @@ WebKitGTK (interface YouTube)
 
 ## Données et confidentialité
 
-- Toutes les données sont stockées localement
+- Toutes les données restent locales
 - Cookies gérés par WebKitGTK
 - Aucune transmission à un service tiers
 - Aucun serveur backend
