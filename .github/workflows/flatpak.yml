@@ -16,11 +16,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
           set -e
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder gnupg
+          sudo apt-get install -y flatpak flatpak-builder gnupg rsync
 
       - name: Setup Flathub
         run: |
@@ -35,7 +35,7 @@ jobs:
             org.freedesktop.Sdk//24.08 \
             org.freedesktop.Platform//24.08
 
-      - name: Clean build folders
+      - name: Clean workspace
         run: |
           set -e
           rm -rf build-dir repo
@@ -50,13 +50,11 @@ jobs:
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      - name: Verify repo output
+      - name: Verify repo
         run: |
           set -e
-          echo "Checking repo content:"
           ls -la repo
-
-          test -f repo/summary || (echo "ERROR: repo is empty" && exit 1)
+          test -f repo/summary
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -82,10 +80,8 @@ jobs:
       - name: Verify artifact
         run: |
           set -e
-          echo "Downloaded repo content:"
           ls -la repo
-
-          test -f repo/summary || (echo "ERROR: artifact repo missing or empty" && exit 1)
+          test -f repo/summary
 
       - name: Deploy to gh-pages
         run: |
@@ -99,8 +95,9 @@ jobs:
 
           rm -rf *
 
-          cp -r repo/* .
+          # FIX IMPORTANT (robuste et fiable)
+          rsync -a repo/ ./
 
-          git add .
-          git commit -m "Update Flatpak repo" || echo "No changes to commit"
+          git add -A
+          git commit -m "Update Flatpak repo" || echo "No changes"
           git push -f origin gh-pages
