@@ -16,52 +16,79 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ----------------------------
+      # SYSTEM DEPENDENCIES
+      # ----------------------------
       - name: Install dependencies
         run: |
           set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
+      # ----------------------------
+      # FLATHUB SETUP
+      # ----------------------------
       - name: Setup Flathub
         run: |
           set -e
           flatpak remote-add --user --if-not-exists flathub \
             https://flathub.org/repo/flathub.flatpakrepo
 
-      - name: Install SDK 24.08
+      # ----------------------------
+      # SDK 24.08 (FIX OBLIGATOIRE)
+      # ----------------------------
+      - name: Install Flatpak SDK
         run: |
           set -e
           flatpak install --user -y flathub \
             org.freedesktop.Sdk//24.08 \
             org.freedesktop.Platform//24.08
 
+      # ----------------------------
+      # BUILD + EXPLICIT REPO OUTPUT
+      # ----------------------------
       - name: Build Flatpak
         run: |
           set -e
+
+          rm -rf repo build-dir
           mkdir -p repo
 
-          flatpak-builder --user --force-clean \
+          flatpak-builder \
+            --force-clean \
+            --user \
             --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
+      # ----------------------------
+      # VERIFY OUTPUT (IMPORTANT)
+      # ----------------------------
       - name: Verify repo
         run: |
           set -e
+          if [ ! -d "repo" ] || [ -z "$(ls -A repo 2>/dev/null)" ]; then
+            echo "ERROR: repo is empty or missing"
+            exit 1
+          fi
           ls -la repo
 
+      # ----------------------------
+      # UPLOAD ARTIFACT
+      # ----------------------------
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-repo
           path: repo
 
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Download artifact
@@ -70,37 +97,36 @@ jobs:
           name: flatpak-repo
           path: repo
 
-      - name: Validate artifact
+      # ----------------------------
+      # DEBUG SAFETY (important)
+      # ----------------------------
+      - name: Verify artifact
         run: |
           set -e
-          echo "=== repo content ==="
-          ls -la repo
-          test -d repo
+          ls -la
+          ls -la repo || (echo "ERROR: repo artifact missing" && exit 1)
 
-      - name: Deploy to gh-pages (SAFE MODE)
+      # ----------------------------
+      # DEPLOY GH-PAGES (SAFE VERSION)
+      # ----------------------------
+      - name: Deploy to gh-pages
         run: |
           set -e
 
           git config user.name "github-actions"
           git config user.email "actions@github.com"
 
-          # ensure gh-pages exists
           git fetch origin gh-pages || true
+          git checkout gh-pages || git checkout --orphan gh-pages
 
-          # safer than orphan (IMPORTANT FIX)
-          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
-            git checkout gh-pages
+          # clean branch safely
+          rm -rf ./*
+
+          # IMPORTANT: avoid cp repo/. crash
+          if [ -d repo ]; then
+            cp -r repo/* .
           else
-            git checkout --orphan gh-pages
-          fi
-
-          rm -rf *
-
-          cp -r repo/. .
-
-          # IMPORTANT: avoid empty commit crash
-          if [ -z "$(ls -A .)" ]; then
-            echo "ERROR: nothing to deploy"
+            echo "ERROR: repo folder missing after artifact download"
             exit 1
           fi
 
