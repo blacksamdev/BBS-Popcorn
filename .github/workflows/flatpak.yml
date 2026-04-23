@@ -75,13 +75,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: flatpak-repo
-          path: artifact
+          path: repo
 
-      - name: Debug artifact structure
+      - name: Debug workspace
         run: |
           set -e
-          echo "Artifact root:"
-          ls -R artifact
+          echo "Workspace:"
+          ls -R
 
       - name: Deploy to gh-pages
         run: |
@@ -95,17 +95,14 @@ jobs:
 
           rm -rf *
 
-          # 🔧 FIX ROBUSTE : détecte automatiquement le repo Flatpak
-          REPO_PATH=$(find artifact -type f -name summary -exec dirname {} \; | head -n 1)
-
-          if [ -z "$REPO_PATH" ]; then
-            echo "ERROR: Flatpak repo not found in artifact"
+          # 🔧 FIX FINAL : on ne dépend PLUS de artifact/, on utilise repo direct
+          if [ ! -f repo/summary ]; then
+            echo "ERROR: Flatpak repo missing"
             exit 1
           fi
 
-          echo "Using repo path: $REPO_PATH"
-
-          cp -r "$REPO_PATH"/. .
+          echo "Deploying Flatpak repo..."
+          cp -r repo/. .
 
           git add -A
           git commit -m "Update Flatpak repo" || echo "No changes"
