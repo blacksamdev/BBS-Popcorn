@@ -1,27 +1,20 @@
-#!/usr/bin/env python3
-
-import os
-import gi
-
-gi.require_version("Gtk", "4.0")
-gi.require_version("WebKit", "6.0")
-
-from gi.repository import GLib
-from bbs_popcorn.app import YtMpvApp
+from updater import Updater
 
 
 def main():
-    data_dir = os.path.join(GLib.get_user_data_dir(), "bbs-popcorn")
-    cache_dir = os.path.join(GLib.get_user_cache_dir(), "bbs-popcorn")
+    print("Popcorn starting...")
 
-    os.makedirs(data_dir, exist_ok=True)
-    os.makedirs(cache_dir, exist_ok=True)
+    status = Updater.status()
+    print("Dependencies:", status)
 
-    cookie_db_path = os.path.join(data_dir, "cookies.sqlite")
-    cookie_export_path = os.path.join(cache_dir, "yt-cookies.txt")
+    # Exemple d’usage
+    url = "https://example.com/video"
 
-    app = YtMpvApp(cookie_db_path, cookie_export_path)
-    app.run(None)
+    if status["mpv"]:
+        Updater.play(url)
+    else:
+        print("mpv non disponible (fallback flatpak-spawn)")
+        Updater.play(url)
 
 
 if __name__ == "__main__":

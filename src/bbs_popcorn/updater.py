@@ -1,51 +1,51 @@
+import shutil
 import subprocess
-import threading
 
 
-class HostUpdater:
+class Updater:
+    """
+    Gestion des dépendances externes (mpv / yt-dlp)
+    Compatible Flatpak Flathub-ready.
+    """
 
-    def __init__(self, on_done=None):
-        self.on_done = on_done
+    @staticmethod
+    def has_binary(name: str) -> bool:
+        return shutil.which(name) is not None
 
-    def check_and_update(self):
-        threading.Thread(target=self._run, daemon=True).start()
+    # ----------------------------
+    # MPV
+    # ----------------------------
+    @staticmethod
+    def mpv_available() -> bool:
+        return Updater.has_binary("mpv")
 
-    def _run_cmd(self, cmd):
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    @staticmethod
+    def play(url: str):
+        if Updater.mpv_available():
+            subprocess.run(["mpv", url])
+        else:
+            subprocess.run(["flatpak-spawn", "--host", "mpv", url])
 
-    # ─────────────────────────────
-    # yt-dlp CHECK ONLY
-    # ─────────────────────────────
+    # ----------------------------
+    # YT-DLP
+    # ----------------------------
+    @staticmethod
+    def ytdlp_available() -> bool:
+        return Updater.has_binary("yt-dlp")
 
-    def _check_ytdlp(self):
-        try:
-            r = self._run_cmd(["yt-dlp", "--version"])
-            return f"yt-dlp: {r.stdout.strip()}"
-        except Exception:
-            return "yt-dlp: not available"
+    @staticmethod
+    def download(url: str):
+        if Updater.ytdlp_available():
+            subprocess.run(["yt-dlp", url])
+        else:
+            subprocess.run(["flatpak-spawn", "--host", "yt-dlp", url])
 
-    # ─────────────────────────────
-    # MPV CHECK ONLY
-    # ─────────────────────────────
-
-    def _check_mpv(self):
-        try:
-            r = self._run_cmd(["mpv", "--version"])
-            first = r.stdout.splitlines()[0] if r.stdout else ""
-            return f"mpv: {first}"
-        except Exception:
-            return "mpv: not available"
-
-    # ─────────────────────────────
-    # MAIN
-    # ─────────────────────────────
-
-    def _run(self):
-        msg = "\n".join([
-            self._check_ytdlp(),
-            self._check_mpv()
-        ])
-
-        if self.on_done:
-            from gi.repository import GLib
-            GLib.idle_add(self.on_done, msg)
+    # ----------------------------
+    # Diagnostic (utile debug)
+    # ----------------------------
+    @staticmethod
+    def status():
+        return {
+            "mpv": Updater.mpv_available(),
+            "yt-dlp": Updater.ytdlp_available()
+        }
