@@ -1,14 +1,83 @@
-name: Deploy Flatpak Repo
+name: Flatpak Build & Deploy
 
 on:
+  push:
+    branches: ["main"]
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Flatpak Build & Sign on"]
-    types:
-      - completed
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder gnupg rsync
+
+      - name: Setup Flathub
+        run: |
+          set -e
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Install SDK
+        run: |
+          set -e
+          flatpak install --user -y flathub org.freedesktop.Sdk//24.08
+          flatpak install --user -y flathub org.freedesktop.Platform//24.08
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          set -e
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+          KEYID=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
+
+          if [ -z "$KEYID" ]; then
+            echo "ERROR: KEYID not found"
+            exit 1
+          fi
+
+          echo "$KEYID" > KEYID.txt
+          gpg --armor --export "$KEYID" > repo-signing.key
+
+      - name: Build Flatpak
+        run: |
+          set -e
+          flatpak-builder \
+            --repo=repo \
+            --force-clean \
+            build-dir \
+            io.github.blacksamdev.Popcorn.json
+
+      - name: Export repo safely
+        run: |
+          set -e
+
+          echo "=== repo check ==="
+          ls -R repo
+
+          test -d repo || (echo "repo missing" && exit 1)
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-repo
+          path: |
+            repo
+            repo-signing.key
+
   deploy:
+    needs: build
     runs-on: ubuntu-latest
 
     steps:
@@ -17,39 +86,48 @@ jobs:
         with:
           ref: gh-pages
 
-      - name: Download Flatpak repo artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: flatpak-repo
-          path: repo
+          path: repo_bundle
 
-      - name: Debug repo content
-        run: |
-          echo "CHECK repo content:"
-          ls -R repo || (echo "repo folder missing" && exit 1)
-
-      - name: Ensure gh-pages content folder exists
-        run: |
-          mkdir -p deploy
-
-      - name: Copy repo content safely
+      - name: Debug downloaded content
         run: |
           set -e
-          if [ ! -d "repo" ]; then
-            echo "ERROR: repo folder missing after artifact download"
+          echo "=== downloaded ==="
+          ls -R repo_bundle
+
+      - name: Prepare pages folder
+        run: |
+          set -e
+          rm -rf pages
+          mkdir -p pages
+
+      - name: Copy repo content
+        run: |
+          set -e
+
+          if [ ! -d "repo_bundle/repo" ]; then
+            echo "ERROR: repo missing in artifact"
             exit 1
           fi
 
-          cp -r repo/* deploy/
+          cp -r repo_bundle/repo/* pages/
+          cp repo_bundle/repo-signing.key pages/ || true
 
-      - name: Commit and push gh-pages
+      - name: Commit and push GitHub Pages
         run: |
           set -e
-          cd deploy
+
+          cd pages
           git init
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
+
           git checkout -b gh-pages
+
           git add .
           git commit -m "Update Flatpak repo"
+
           git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages
