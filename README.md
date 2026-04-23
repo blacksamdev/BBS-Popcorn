@@ -5,7 +5,7 @@
 BBS pOpcOrn est un client YouTube Linux basé sur WebKitGTK.  
 Il affiche l’interface YouTube dans une fenêtre GTK et redirige la lecture vidéo vers MPV pour une lecture externe optimisée.
 
-L’objectif est de fournir une expérience légère et fluide, sans navigateur complet, en s’appuyant sur des outils externes obligatoires.
+L’objectif est de fournir une expérience légère et fluide, sans navigateur complet, en s’appuyant sur des composants externes.
 
 ---
 
@@ -13,10 +13,10 @@ L’objectif est de fournir une expérience légère et fluide, sans navigateur 
 
 - Interface YouTube via WebKitGTK
 - Navigation et recherche dans l’interface officielle
-- Lecture des vidéos via MPV (externe)
-- Résolution des flux via yt-dlp (interne)
-- Support playlists et vidéos individuelles
-- Gestion des cookies de session locale
+- Lecture des vidéos via MPV (lecteur externe)
+- Résolution des flux via yt-dlp
+- Support des playlists et vidéos individuelles
+- Gestion des cookies de session locale via WebKitGTK
 
 ---
 
@@ -25,33 +25,42 @@ L’objectif est de fournir une expérience légère et fluide, sans navigateur 
 - Linux
 - Flatpak
 
-### Dépendances obligatoires
+---
 
-- MPV : Flatpak (io.mpv.Mpv)
-- yt-dlp : gestionnaire de paquets de la distribution
+## Dépendances externes
+
+Ces composants doivent être installés sur le système ou via Flatpak :
+
+- MPV (Flatpak recommandé)
+- yt-dlp (outil système disponible dans le PATH)
 
 ---
 
 ## Installation des dépendances
 
-### MPV (Flatpak)
+### MPV (Flatpak recommandé)
 
+Installation utilisateur (recommandé) :
+```bash
+flatpak install --user flathub io.mpv.Mpv
+```
+Installation système :
 ```bash
 flatpak install flathub io.mpv.Mpv
 ```
 
-### yt-dlp : installé sur le système (via apt / dnf / pacman)
+### yt-dlp (outil externe requis sur le système hôte)
+
+_yt-dlp doit être installé sur le système (accessible dans le PATH de l’utilisateur)._
 
 Debian / Ubuntu / Mint :
 ```bash
 apt install yt-dlp
 ```
-
 Fedora :
 ```bash
 dnf install yt-dlp
 ```
-
 Arch :
 ```bash
 pacman -S yt-dlp
@@ -61,7 +70,7 @@ pacman -S yt-dlp
 
 ## Installation
 
-Ajouter le dépôt :
+Ajouter le dépôt Flatpak :
 ```bash
 flatpak remote-add --if-not-exists bbs-popcorn https://blacksamdev.github.io/BBS-Popcorn/bbs-popcorn.flatpakrepo
 ```
@@ -101,9 +110,9 @@ WebKitGTK (interface YouTube)
         │
         ├── interactions utilisateur
         │
-        ├── yt-dlp (outil interne obligatoire)
+        ├── yt-dlp (outil externe système)
         │
-        └── MPV (outil externe obligatoire)
+        └── MPV (outil externe)
 ```
 
 ---
@@ -113,9 +122,9 @@ WebKitGTK (interface YouTube)
 | Composant | Technologie |
 |---|---|
 | Interface | Python + GTK4 + WebKitGTK |
-| Lecteur | MPV (Flatpak obligatoire) |
+| Lecteur | MPV (Flatpak) |
 | Résolution flux | yt-dlp (système) |
-| Cookies | WebKitGTK (stockage local, format navigateur) |
+| Cookies | WebKitGTK stockage local |
 | Packaging | Flatpak |
 | Distribution | GitHub Pages |
 
@@ -132,10 +141,10 @@ WebKitGTK (interface YouTube)
 
 ## Données et confidentialité
 
-- Données stockées localement uniquement
-- Cookies et sessions stockés localement via WebKitGTK
-- Aucune transmission à un serveur tiers
-- L'utilisateur est responsable de la sécurité de ses identifiants
+- Toutes les données sont stockées localement
+- Cookies gérés par WebKitGTK
+- Aucune transmission à un service tiers
+- Aucun serveur backend
 
 ---
 

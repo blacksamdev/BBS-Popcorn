@@ -7,11 +7,11 @@ def check_dependencies():
 
     missing = []
 
-    if not status["mpv"]:
+    if not status.get("mpv", False):
         missing.append("MPV (Flatpak) : flatpak install flathub io.mpv.Mpv")
 
-    if not status["yt-dlp"]:
-        missing.append("yt-dlp (système) : apt install yt-dlp")
+    if not status.get("yt-dlp", False):
+        missing.append("yt-dlp (système) : apt/dnf/pacman install yt-dlp")
 
     if missing:
         print("\n=== Dépendances manquantes ===\n")
@@ -28,10 +28,14 @@ def main():
 
     check_dependencies()
 
-    # Exemple d’usage
+    # URL test (à remplacer par WebKit callback dans ton app réelle)
     url = "https://example.com/video"
 
-    Updater.play(url)
+    try:
+        Updater.play(url)
+    except Exception as e:
+        print("Erreur lecture vidéo :", str(e))
+        sys.exit(1)
 
 
 if __name__ == "__main__":
