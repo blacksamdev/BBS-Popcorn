@@ -1,121 +1,41 @@
-name: Flatpak CI (Flathub-ready)
+name: Flatpak CI
 
 on:
   push:
     branches: ["main"]
-  pull_request:
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FLATPAK_INSTALL_FLAGS: --user -y
-  GNUPGHOME: ${{ github.workspace }}/.gnupg
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-      # ----------------------------
-      # SYSTEM DEPENDENCIES
-      # ----------------------------
-      - name: Install system deps
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
         run: |
-          set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      # ----------------------------
-      # FLATPAK CACHE (important)
-      # ----------------------------
-      - name: Cache Flatpak
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/share/flatpak
-            ~/.var/app
-          key: flatpak-${{ runner.os }}-${{ hashFiles('**/*.json') }}
-
-      # ----------------------------
-      # FLATHUB (user scope only → CI-safe)
-      # ----------------------------
       - name: Setup Flathub
         run: |
-          set -e
-          flatpak remote-add --user --if-not-exists flathub \
-            https://flathub.org/repo/flathub.flatpakrepo
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
-      # ----------------------------
-      # SDK / RUNTIME (FIXED 24.08)
-      # ----------------------------
-      - name: Install Flatpak SDK
+      - name: Install SDK
         run: |
-          set -e
-          flatpak install $FLATPAK_INSTALL_FLAGS flathub \
-            org.freedesktop.Sdk//24.08 \
-            org.freedesktop.Platform//24.08
+          flatpak install --user -y flathub org.freedesktop.Sdk//24.08 org.freedesktop.Platform//24.08
 
-      # ----------------------------
-      # GPG (CI SAFE + robust)
-      # ----------------------------
-      - name: Import GPG key
-        if: github.event_name == 'push'
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      - name: Build Flatpak
         run: |
-          set -e
-
-          mkdir -p "$GNUPGHOME"
-          chmod 700 "$GNUPGHOME"
-
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-
-          KEYID=$(gpg --list-secret-keys --with-colons \
-            | awk -F: '/^fpr:/ {print $10; exit}')
-
-          if [ -z "$KEYID" ]; then
-            echo "ERROR: missing GPG KEYID"
-            exit 1
-          fi
-
-          echo "KEYID=$KEYID" >> $GITHUB_ENV
-
-          gpg --armor --export "$KEYID" > repo-signing.key
-
-      # ----------------------------
-      # BUILD FLATPAK
-      # ----------------------------
-      - name: Build
-        run: |
-          set -e
-
           flatpak-builder \
             --force-clean \
+            --user \
             --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      # ----------------------------
-      # SIGN (only on push main)
-      # ----------------------------
-      - name: Sign repo
-        if: github.ref == 'refs/heads/main'
+      - name: Export repo
         run: |
-          set -e
-
-          export GNUPGHOME="$GNUPGHOME"
-
-          flatpak build-update-repo repo \
-            --gpg-import=repo-signing.key \
-            --gpg-sign="$KEYID"
-
-      # ----------------------------
-      # ARTIFACT
-      # ----------------------------
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: flatpak-repo
-          path: repo
+          flatpak build-update-repo repo
