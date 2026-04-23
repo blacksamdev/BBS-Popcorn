@@ -1,7 +1,7 @@
 {
   "app-id": "io.github.blacksamdev.Popcorn",
   "runtime": "org.gnome.Platform",
-  "runtime-version": "49",
+  "runtime-version": "46",
   "sdk": "org.gnome.Sdk",
   "command": "bbs-popcorn",
 
@@ -12,35 +12,52 @@
     "--socket=fallback-x11",
     "--socket=pulseaudio",
     "--device=dri",
-    "--filesystem=home",
-    "--talk-name=org.freedesktop.Flatpak"
+    "--filesystem=xdg-config",
+    "--filesystem=xdg-cache",
+    "--filesystem=xdg-data"
   ],
 
   "modules": [
+
+    {
+      "name": "mpv",
+      "buildsystem": "meson",
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://github.com/mpv-player/mpv/archive/v0.38.0.tar.gz",
+          "sha256": "REPLACE_WITH_REAL_SHA256"
+        }
+      ]
+    },
+
     {
       "name": "yt-dlp",
       "buildsystem": "simple",
       "build-commands": [
-        "pip3 install --no-index --find-links=. --prefix=/app yt_dlp-2026.3.17-py3-none-any.whl"
+        "install -Dm755 yt-dlp /app/bin/yt-dlp"
       ],
       "sources": [
         {
           "type": "file",
-          "url": "https://files.pythonhosted.org/packages/py3/y/yt_dlp/yt_dlp-2026.3.17-py3-none-any.whl",
-          "sha256": "32992db94303a8a5d211a183f2174834fe7f8c29d83ed2e7a324eae97a8f26d8"
+          "url": "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp",
+          "sha256": "REPLACE_WITH_SHA256"
         }
       ]
     },
+
     {
       "name": "bbs-popcorn",
       "buildsystem": "simple",
       "build-commands": [
         "install -Dm755 bbs-popcorn.sh /app/bin/bbs-popcorn",
-        "install -Dm644 src/main.py    /app/share/bbs-popcorn/main.py",
-        "install -Dm644 src/app.py     /app/share/bbs-popcorn/app.py",
-        "install -Dm644 src/player.py  /app/share/bbs-popcorn/player.py",
-        "install -Dm644 src/cookies.py /app/share/bbs-popcorn/cookies.py",
-        "install -Dm644 src/updater.py /app/share/bbs-popcorn/updater.py",
+
+        "install -Dm644 src/bbs_popcorn/main.py /app/lib/bbs-popcorn/main.py",
+        "install -Dm644 src/bbs_popcorn/app.py /app/lib/bbs-popcorn/app.py",
+        "install -Dm644 src/bbs_popcorn/player.py /app/lib/bbs-popcorn/player.py",
+        "install -Dm644 src/bbs_popcorn/cookies.py /app/lib/bbs-popcorn/cookies.py",
+        "install -Dm644 src/bbs_popcorn/updater.py /app/lib/bbs-popcorn/updater.py",
+
         "install -Dm644 data/io.github.blacksamdev.Popcorn.desktop /app/share/applications/io.github.blacksamdev.Popcorn.desktop",
         "install -Dm644 data/io.github.blacksamdev.Popcorn.svg /app/share/icons/hicolor/scalable/apps/io.github.blacksamdev.Popcorn.svg"
       ],
