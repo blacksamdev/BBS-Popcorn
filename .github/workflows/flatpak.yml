@@ -27,15 +27,21 @@ jobs:
         run: |
           mkdir -p "$GNUPGHOME"
           chmod 700 "$GNUPGHOME"
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --pinentry-mode loopback --import
+
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes \
+            --pinentry-mode loopback \
+            --import
+
           gpg --list-secret-keys
 
       - name: Build Flatpak
         env:
           GNUPGHOME: /tmp/gnupg
-          GPG_TTY: ""
+          PINENTRY_MODE: loopback
+          GPG_TTY: /dev/null
         run: |
-          export PINENTRY_MODE=loopback
+          echo "allow-loopback-pinentry" >> /tmp/gnupg/gpg-agent.conf
+          gpgconf --kill gpg-agent || true
 
           flatpak-builder --force-clean \
             --user \
