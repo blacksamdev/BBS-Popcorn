@@ -13,9 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           set -e
           sudo apt-get update
@@ -24,30 +25,36 @@ jobs:
       - name: Setup Flathub
         run: |
           set -e
-          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak remote-add --user --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
 
-      - name: Install SDK 24.08
+      - name: Install Flatpak SDK 24.08
         run: |
           set -e
           flatpak install --user -y flathub \
             org.freedesktop.Sdk//24.08 \
             org.freedesktop.Platform//24.08
 
-      - name: Build Flatpak repo
+      - name: Prepare build environment
         run: |
           set -e
           rm -rf build-dir repo
-          mkdir repo
+          mkdir -p repo
+
+      - name: Build Flatpak
+        run: |
+          set -e
 
           flatpak-builder --user --force-clean \
             --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-          echo "=== REPO CONTENT ==="
+          echo "=== VERIFY REPO ==="
           ls -R repo
 
           test -f repo/summary
+
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -61,20 +68,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: Download artifact
+      - name: Download Flatpak artifact
         uses: actions/download-artifact@v4
         with:
           name: flatpak-repo
-          path: repo
+          path: /tmp/repo
 
-      - name: Validate repo exists
+      - name: Verify artifact
         run: |
           set -e
-          echo "CHECK repo structure:"
-          ls -R repo
-          test -f repo/summary
+          echo "=== DOWNLOADED ARTIFACT ==="
+          ls -R /tmp/repo
+          test -f /tmp/repo/summary
 
       - name: Deploy to gh-pages
         run: |
@@ -88,9 +96,9 @@ jobs:
 
           rm -rf *
 
-          # ✔ IMPORTANT FIX : rsync au lieu de cp
-          rsync -a repo/ ./
+          # SAFE COPY (no relative path issues)
+          cp -r /tmp/repo/. .
 
           git add -A
-          git commit -m "Update Flatpak repo" || echo "No changes"
+          git commit -m "Update Flatpak repo" || echo "No changes to commit"
           git push -f origin gh-pages
