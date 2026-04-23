@@ -1,82 +1,95 @@
-name: Flatpak CI (Flathub Ready)
+name: Flatpak CI
 
 on:
   push:
     branches: ["main"]
   pull_request:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    env:
-      FLATPAK_USER: 1
-
     steps:
-      - name: Checkout
+      # ----------------------------
+      # CHECKOUT
+      # ----------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -------------------------
+      # ----------------------------
       # SYSTEM DEPENDENCIES
-      # -------------------------
-      - name: Install system tools
+      # ----------------------------
+      - name: Install dependencies
         run: |
           set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      # -------------------------
+      # ----------------------------
       # FLATHUB SETUP (USER ONLY)
-      # -------------------------
-      - name: Setup Flathub (user)
+      # ----------------------------
+      - name: Setup Flathub
         run: |
           set -e
+
           flatpak --user remote-add --if-not-exists flathub \
             https://flathub.org/repo/flathub.flatpakrepo
 
-      # -------------------------
-      # INSTALL RUNTIME + SDK
-      # -------------------------
-      - name: Install SDK
+          flatpak --user update --appstream flathub || true
+
+      # ----------------------------
+      # INSTALL SDK + RUNTIME 24.08
+      # ----------------------------
+      - name: Install Flatpak SDK
         run: |
           set -e
+
           flatpak --user install -y flathub \
             org.freedesktop.Sdk//24.08 \
-            org.freedesktop.Platform//24.08
+            org.freedesktop.Platform//24.08 \
+            org.freedesktop.Platform.GL.default//24.08
 
-      # -------------------------
-      # VERIFY
-      # -------------------------
-      - name: Verify SDK
+      # ----------------------------
+      # VERIFY ENVIRONMENT
+      # ----------------------------
+      - name: Verify Flatpak setup
         run: |
+          set -e
           flatpak info org.freedesktop.Sdk//24.08
           flatpak info org.freedesktop.Platform//24.08
+          flatpak remotes --user
+          flatpak list --user
 
-      # -------------------------
+      # ----------------------------
       # BUILD FLATPAK
-      # -------------------------
+      # ----------------------------
       - name: Build Flatpak
         run: |
           set -e
+
           flatpak-builder \
             --force-clean \
             --user \
+            --disable-cache \
             --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      # -------------------------
-      # EXPORT REPO (NO GPG YET = SAFE MODE)
-      # -------------------------
-      - name: Build repo
+      # ----------------------------
+      # EXPORT REPO (NO SIGNING REQUIRED FOR CI VALIDATION)
+      # ----------------------------
+      - name: Export repository
         run: |
           set -e
           flatpak build-update-repo repo
 
-      # -------------------------
-      # ARTIFACT
-      # -------------------------
-      - name: Upload repo
+      # ----------------------------
+      # ARTIFACT OUTPUT
+      # ----------------------------
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-repo
