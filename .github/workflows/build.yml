@@ -1,0 +1,52 @@
+name: Build and publish Flatpak repo
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install flatpak-builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder gnupg
+
+      - name: Setup Flatpak (user mode)
+        run: |
+          flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GNUPGHOME: /tmp/gnupg
+        run: |
+          mkdir -p "$GNUPGHOME"
+          chmod 700 "$GNUPGHOME"
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --import
+          gpg --list-secret-keys
+
+      - name: Build Flatpak
+        env:
+          GNUPGHOME: /tmp/gnupg
+        run: |
+          flatpak-builder --force-clean \
+            --user \
+            --install-deps-from=flathub \
+            --repo=repo \
+            --gpg-sign=72713F2085B47986B4E54810D2C55424E2215594 \
+            build-dir io.github.blacksamdev.Popcorn.json
+
+      - name: Copy flatpakrepo file
+        run: cp bbs-popcorn.flatpakrepo repo/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repo
+          publish_branch: gh-pages

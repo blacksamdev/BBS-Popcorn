@@ -1,2 +1,6 @@
-#!/usr/bin/env sh
-exec python3 /app/lib/popcorn/main.py "$@"
+#!/bin/bash
+
+set -e
+
+# Lance Python dans l’environnement Flatpak
+exec python3 /app/bin/main.py "$@"
