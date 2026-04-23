@@ -215,3 +215,4 @@ build-dir/
 *.sqlite
 *.txt
 >>>>>>> d9ad2e6 (Initial commit - BBS Popcorn v0.1)
+*.swp
