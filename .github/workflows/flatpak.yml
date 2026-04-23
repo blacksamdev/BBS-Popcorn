@@ -18,7 +18,7 @@ jobs:
 
       - name: Setup Flatpak (user mode)
         run: |
-          flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || true
 
       - name: Import GPG key
         env:
@@ -38,16 +38,15 @@ jobs:
         env:
           GNUPGHOME: /tmp/gnupg
           PINENTRY_MODE: loopback
-          GPG_TTY: /dev/null
+          GPG_TTY: ""
         run: |
-          echo "allow-loopback-pinentry" >> /tmp/gnupg/gpg-agent.conf
+          echo "allow-loopback-pinentry" >> /tmp/gnupg/gpg-agent.conf || true
           gpgconf --kill gpg-agent || true
 
           flatpak-builder --force-clean \
             --user \
             --install-deps-from=flathub \
             --repo=repo \
-            --no-gpg-sign \
             build-dir io.github.blacksamdev.Popcorn.json
 
       - name: Copy flatpakrepo file
