@@ -19,7 +19,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      - name: Setup Flathub (user scope)
+      - name: Setup Flathub
         run: |
           set -e
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -30,7 +30,7 @@ jobs:
           flatpak install --user -y flathub org.freedesktop.Sdk//23.08
           flatpak install --user -y flathub org.freedesktop.Platform//23.08
 
-      - name: Import GPG key
+      - name: Import + TRUST GPG key (IMPORTANT FIX)
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
@@ -41,12 +41,10 @@ jobs:
           KEYID=$(gpg --list-secret-keys --keyid-format LONG \
             | awk '/sec/ {split($2,a,"/"); print a[2]; exit}')
 
-          if [ -z "$KEYID" ]; then
-            echo "ERROR: KEYID not found"
-            exit 1
-          fi
-
           echo "KEYID=$KEYID" >> $GITHUB_ENV
+
+          # IMPORTANT: trust key for signing
+          echo -e "5\ny\n" | gpg --batch --command-fd 0 --edit-key "$KEYID" trust quit
 
       - name: Build Flatpak
         run: |
@@ -57,9 +55,10 @@ jobs:
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      - name: Update repo + sign
+      - name: Sign repository
         run: |
           set -e
+
           flatpak build-update-repo \
             --gpg-sign="$KEYID" \
             repo
