@@ -1,35 +1,11 @@
 {
   "app-id": "io.github.blacksamdev.Popcorn",
-  "runtime": "org.gnome.Platform",
-  "runtime-version": "49",
-  "sdk": "org.gnome.Sdk",
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "23.08",
+  "sdk": "org.freedesktop.Sdk",
   "command": "bbs-popcorn",
 
-  "finish-args": [
-    "--share=network",
-    "--share=ipc",
-    "--socket=wayland",
-    "--socket=fallback-x11",
-    "--socket=pulseaudio",
-    "--device=dri",
-    "--filesystem=xdg-config",
-    "--filesystem=xdg-cache",
-    "--filesystem=xdg-data"
-  ],
-
   "modules": [
-
-    {
-      "name": "mpv",
-      "buildsystem": "meson",
-      "sources": [
-        {
-          "type": "archive",
-          "url": "https://github.com/mpv-player/mpv/archive/v0.38.0.tar.gz",
-          "sha256": "86d9ef40b6058732f67b46d0bbda24a074fae860b3eaae05bab3145041303066"
-        }
-      ]
-    },
 
     {
       "name": "yt-dlp",
@@ -47,19 +23,10 @@
     },
 
     {
-      "name": "bbs-popcorn",
+      "name": "popcorn",
       "buildsystem": "simple",
       "build-commands": [
-        "install -Dm755 bbs-popcorn.sh /app/bin/bbs-popcorn",
-
-        "install -Dm644 src/bbs_popcorn/main.py /app/lib/bbs-popcorn/main.py",
-        "install -Dm644 src/bbs_popcorn/app.py /app/lib/bbs-popcorn/app.py",
-        "install -Dm644 src/bbs_popcorn/player.py /app/lib/bbs-popcorn/player.py",
-        "install -Dm644 src/bbs_popcorn/cookies.py /app/lib/bbs-popcorn/cookies.py",
-        "install -Dm644 src/bbs_popcorn/updater.py /app/lib/bbs-popcorn/updater.py",
-
-        "install -Dm644 data/io.github.blacksamdev.Popcorn.desktop /app/share/applications/io.github.blacksamdev.Popcorn.desktop",
-        "install -Dm644 data/io.github.blacksamdev.Popcorn.svg /app/share/icons/hicolor/scalable/apps/io.github.blacksamdev.Popcorn.svg"
+        "install -Dm755 src/bbs_popcorn/main.py /app/bin/bbs-popcorn"
       ],
       "sources": [
         {
