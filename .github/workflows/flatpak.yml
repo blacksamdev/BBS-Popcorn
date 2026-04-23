@@ -47,7 +47,7 @@ jobs:
             --user \
             --install-deps-from=flathub \
             --repo=repo \
-            --gpg-sign=72713F2085B47986B4E54810D2C55424E2215594 \
+            --no-gpg-sign \
             build-dir io.github.blacksamdev.Popcorn.json
 
       - name: Copy flatpakrepo file
