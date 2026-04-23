@@ -10,32 +10,114 @@ jobs:
 
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      GNUPGHOME: ${{ github.workspace }}/.gnupg
 
     steps:
-      - uses: actions/checkout@v4
+      # -------------------------
+      # Checkout
+      # -------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install dependencies
+      # -------------------------
+      # Dependencies
+      # -------------------------
+      - name: Install system deps
         run: |
+          set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
+      # -------------------------
+      # Flathub setup (user only)
+      # -------------------------
       - name: Setup Flathub
         run: |
-          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          set -e
+          flatpak remote-add --user --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
 
+      # -------------------------
+      # Install SDK 24.08 (IMPORTANT FIX)
+      # -------------------------
       - name: Install SDK
         run: |
-          flatpak install --user -y flathub org.freedesktop.Sdk//24.08 org.freedesktop.Platform//24.08
+          set -e
+          flatpak install --user -y flathub \
+            org.freedesktop.Sdk//24.08 \
+            org.freedesktop.Platform//24.08
 
+      # -------------------------
+      # Build Flatpak
+      # -------------------------
       - name: Build Flatpak
         run: |
+          set -e
+
+          rm -rf build-dir repo
+
           flatpak-builder \
             --force-clean \
             --user \
+            --install-deps-from=flathub \
             --repo=repo \
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      - name: Export repo
+      # -------------------------
+      # Generate repo metadata
+      # -------------------------
+      - name: Update repo metadata
         run: |
-          flatpak build-update-repo repo
+          set -e
+
+          flatpak build-update-repo \
+            --generate-static-deltas \
+            repo
+
+      # -------------------------
+      # Upload artifact (debug + review)
+      # -------------------------
+      - name: Upload repo artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-repo
+          path: repo
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: flatpak-repo
+          path: repo
+
+      # -------------------------
+      # Deploy to gh-pages (Flatpak repo)
+      # -------------------------
+      - name: Deploy to GitHub Pages
+        run: |
+          set -e
+
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+          git fetch origin gh-pages || true
+
+          git checkout --orphan gh-pages
+
+          rm -rf *
+
+          cp -r repo/* .
+
+          git add .
+
+          git commit -m "Update Flatpak repo"
+
+          git push -f origin gh-pages
