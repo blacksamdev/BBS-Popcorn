@@ -19,17 +19,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
-      - name: Setup Flathub
-        run: |
-          set -e
-          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
-      - name: Install Flatpak runtime dependencies
-        run: |
-          set -e
-          flatpak install -y flathub org.freedesktop.Platform || true
-          flatpak install -y flathub org.freedesktop.Sdk || true
-
       - name: Import GPG key
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -41,14 +30,7 @@ jobs:
           KEYID=$(gpg --list-secret-keys --keyid-format LONG \
             | awk '/sec/ {split($2,a,"/"); print a[2]; exit}')
 
-          if [ -z "$KEYID" ]; then
-            echo "ERROR: KEYID not found"
-            gpg --list-secret-keys
-            exit 1
-          fi
-
           echo "KEYID=$KEYID" >> $GITHUB_ENV
-          echo "Using KEYID: $KEYID"
 
       - name: Build Flatpak
         run: |
@@ -60,23 +42,18 @@ jobs:
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      - name: Update repository
+      - name: Update repo
         run: |
           set -e
           flatpak build-update-repo repo
 
-      - name: Sign repository
+      - name: Sign repo
         run: |
           set -e
           flatpak build-sign repo "$KEYID"
-
-      - name: Create artifact
-        run: |
-          set -e
-          tar -czf repo.tar.gz repo
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-repo
-          path: repo.tar.gz
+          path: repo
