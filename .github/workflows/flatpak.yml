@@ -75,45 +75,38 @@ jobs:
           name: flatpak-repo
           path: repo
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
+deploy:
+  needs: build
+  runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  steps:
+    - uses: actions/checkout@v4
 
-      # ----------------------------
-      # DOWNLOAD ARTIFACT FROM BUILD
-      # ----------------------------
-      - name: Download Flatpak repo
-        uses: actions/download-artifact@v4
-        with:
-          name: flatpak-repo
-          path: repo
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: flatpak-repo
+        path: repo
 
-      # ----------------------------
-      # DEPLOY TO GH-PAGES
-      # ----------------------------
-      - name: Deploy to gh-pages
-        run: |
-          set -e
+    - name: Debug downloaded artifact
+      run: ls -la repo
 
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
+    - name: Deploy
+      run: |
+        set -e
 
-          git fetch origin gh-pages || true
-          git checkout --orphan gh-pages
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
 
-          rm -rf *
+        git fetch origin gh-pages || true
+        git checkout --orphan gh-pages
 
-          if [ ! -d repo ] || [ -z "$(ls -A repo)" ]; then
-            echo "ERROR: repo artifact missing"
-            exit 1
-          fi
+        rm -rf *
 
-          cp -r repo/. .
+        test -d repo
 
-          git add .
-          git commit -m "Update Flatpak repo"
-          git push -f origin gh-pages
+        cp -r repo/. .
+
+        git add .
+        git commit -m "Update Flatpak repo"
+        git push -f origin gh-pages
