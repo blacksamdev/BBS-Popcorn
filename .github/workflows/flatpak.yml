@@ -3,25 +3,74 @@ name: Flatpak CI
 on:
   push:
     branches: ["main"]
+  pull_request:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FLATPAK_USER: "1"
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install deps
+      # ----------------------------
+      # SYSTEM DEPENDENCIES
+      # ----------------------------
+      - name: Install system dependencies
         run: |
+          set -e
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder gnupg
 
+      # ----------------------------
+      # FLATHUB SETUP
+      # ----------------------------
+      - name: Setup Flathub
+        run: |
+          set -e
+
+          flatpak remote-add --user --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
+
+      # ----------------------------
+      # INSTALL SDK + RUNTIME (IMPORTANT FIX 24.08)
+      # ----------------------------
+      - name: Install Flatpak SDK
+        run: |
+          set -e
+
+          flatpak install --user -y flathub \
+            org.freedesktop.Sdk//24.08 \
+            org.freedesktop.Platform//24.08
+
+      # ----------------------------
+      # VERIFY INSTALL
+      # ----------------------------
+      - name: Verify Flatpak SDK
+        run: |
+          set -e
+          flatpak list --user
+
+      # ----------------------------
+      # BUILD FLATPAK
+      # ----------------------------
       - name: Build Flatpak
         run: |
-          flatpak-builder --force-clean --repo=repo build-dir io.github.blacksamdev.Popcorn.json
+          set -e
 
-      - name: Upload artifact
+          flatpak-builder --user --force-clean \
+            --repo=repo \
+            build-dir \
+            io.github.blacksamdev.Popcorn.json
+
+      # ----------------------------
+      # UPLOAD ARTIFACT
+      # ----------------------------
+      - name: Upload repo artifact
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-repo
@@ -32,16 +81,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download artifact
+      # ----------------------------
+      # DOWNLOAD ARTIFACT
+      # ----------------------------
+      - name: Download Flatpak repo
         uses: actions/download-artifact@v4
         with:
           name: flatpak-repo
           path: repo
 
-      - name: Deploy to gh-pages
+      # ----------------------------
+      # DEPLOY TO GH-PAGES
+      # ----------------------------
+      - name: Deploy to GitHub Pages
         run: |
           set -e
 
@@ -49,20 +104,17 @@ jobs:
           git config user.email "actions@github.com"
 
           git fetch origin gh-pages || true
-
           git checkout --orphan gh-pages
 
           rm -rf *
 
           if [ ! -d repo ] || [ -z "$(ls -A repo)" ]; then
-            echo "ERROR: repo missing"
+            echo "ERROR: repo artifact missing"
             exit 1
           fi
 
           cp -r repo/. .
 
           git add .
-
           git commit -m "Update Flatpak repo"
-
           git push -f origin gh-pages
