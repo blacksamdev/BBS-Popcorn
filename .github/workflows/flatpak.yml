@@ -139,6 +139,7 @@ jobs:
           set -e
           rm -rf pages
           mkdir -p pages
+          touch pages/.nojekyll
 
       - name: Copy repo content
         run: |
