@@ -66,25 +66,12 @@ flatpak install bbs-popcorn io.github.blacksamdev.Popcorn
 
 ---
 
-## Release de test
+## Beta
 
-Pour partager une version de test avec des amis avant Flathub :
-
-1. Créer un tag beta et le pousser :
-```bash
-git tag v0.4.0-beta1
-git push origin v0.4.0-beta1
-```
-2. Le workflow `Flatpak Beta Release` publie automatiquement une pre-release GitHub avec :
-   - `bbs-popcorn-<version>.flatpak`
-   - `bbs-popcorn-<version>.flatpak.sha256`
-3. Installer la beta :
 ```bash
 flatpak install --or-update ./bbs-popcorn-<version>.flatpak
 flatpak run io.github.blacksamdev.Popcorn
 ```
-
-Ce canal beta est indépendant du dépôt stable GitHub Pages.
 
 ---
 

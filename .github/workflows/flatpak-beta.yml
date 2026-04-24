@@ -7,9 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       beta_tag:
-        description: "Tag beta (ex: v0.4.0-beta1)"
-        required: false
-        default: ""
+        description: "Version beta conforme (ex: v0.4.0-beta1)"
+        required: true
 
 env:
   APP_ID: io.github.blacksamdev.Popcorn
@@ -36,8 +35,16 @@ jobs:
           elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             VERSION="${GITHUB_REF_NAME}"
           else
-            VERSION="test-${GITHUB_RUN_NUMBER}"
+            echo "ERROR: missing beta version"
+            exit 1
           fi
+
+          if ! printf '%s\n' "${VERSION}" | rg -q '^v[0-9]+\.[0-9]+\.[0-9]+-beta[0-9]+$'; then
+            echo "ERROR: invalid beta version '${VERSION}'"
+            echo "Expected format: vMAJOR.MINOR.PATCH-betaN (example: v0.4.0-beta1)"
+            exit 1
+          fi
+
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
           echo "VERSION=${VERSION}" >> "${GITHUB_ENV}"
 
