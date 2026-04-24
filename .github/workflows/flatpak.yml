@@ -110,6 +110,7 @@ jobs:
           path: |
             repo
             repo-signing.key
+            bbs-popcorn.flatpakrepo
 
   deploy:
     needs: build
@@ -149,6 +150,7 @@ jobs:
 
           cp -r repo_bundle/repo/* pages/
           cp repo_bundle/repo-signing.key pages/ || true
+          cp repo_bundle/bbs-popcorn.flatpakrepo pages/ || true
 
       - name: Commit and push GitHub Pages
         run: |
