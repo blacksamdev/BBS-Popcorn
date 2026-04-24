@@ -19,7 +19,7 @@
       "name": "yt-dlp",
       "buildsystem": "simple",
       "build-commands": [
-        "install -Dm755 yt-dlp /app/bin/yt-dlp"
+        "install -Dm755 yt-dlp.sh /app/bin/yt-dlp"
       ],
       "sources": [
         {
