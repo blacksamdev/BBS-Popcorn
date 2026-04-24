@@ -66,7 +66,7 @@ flatpak install bbs-popcorn io.github.blacksamdev.Popcorn
 
 ---
 
-## Canal beta (tests GitHub)
+## Release de test
 
 Pour partager une version de test avec des amis avant Flathub :
 
