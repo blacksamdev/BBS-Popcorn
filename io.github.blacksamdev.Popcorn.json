@@ -16,10 +16,17 @@
 
   "modules": [
     {
-      "name": "python-deps",
+      "name": "yt-dlp",
       "buildsystem": "simple",
       "build-commands": [
-        "python3 -m pip install --prefix=/app yt-dlp"
+        "install -Dm755 yt-dlp /app/bin/yt-dlp"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/yt-dlp/yt-dlp.git",
+          "branch": "master"
+        }
       ]
     },
     {
