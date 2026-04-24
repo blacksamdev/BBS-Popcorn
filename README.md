@@ -27,12 +27,12 @@ L’objectif est de proposer une interface légère sans navigateur complet, en 
 
 ---
 
-## Dépendances externes
+## Dépendances
 
-Ces composants ne sont pas fournis par l’application et doivent être installés séparément :
+Comportement cible pour Flatpak/Flathub :
 
-- MPV (Flatpak recommandé)
-- yt-dlp (accessible dans le PATH utilisateur)
+- MPV doit être installé côté hôte via Flatpak (`io.mpv.Mpv`)
+- `yt-dlp` est embarqué dans l’application (inclus au build Flatpak)
 
 ---
 
@@ -46,25 +46,9 @@ flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flat
 flatpak install -y flathub io.mpv.Mpv
 ```
 
-### yt-dlp (outil externe utilisateur)
+### yt-dlp
 
-Installation (recommandée) :
-```bash
-mkdir -p ~/.local/bin
-curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-  -o ~/.local/bin/yt-dlp
-chmod a+rx ~/.local/bin/yt-dlp
-```
-
-Activation (session courante) :
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-Persistance (optionnel) :
-```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-```
+Aucune installation utilisateur nécessaire : `yt-dlp` est fourni dans le Flatpak Popcorn.
 
 ---
 
@@ -110,7 +94,7 @@ WebKitGTK (interface YouTube)
         │
         ├── interactions utilisateur
         │
-        ├── yt-dlp (outil externe utilisateur)
+        ├── yt-dlp (embarqué dans Popcorn)
         │
         └── MPV (outil externe)
 ```
@@ -123,7 +107,7 @@ WebKitGTK (interface YouTube)
 |---|---|
 | Interface | Python + GTK4 + WebKitGTK |
 | Lecteur | MPV (Flatpak) |
-| Résolution flux | yt-dlp (outil externe utilisateur) |
+| Résolution flux | yt-dlp (embarqué dans Popcorn) |
 | Cookies | WebKitGTK stockage local |
 | Packaging | Flatpak |
 | Distribution | GitHub Pages |

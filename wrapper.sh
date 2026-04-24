@@ -2,4 +2,7 @@
 
 set -e
 
-exec python3 /app/bin/main.py "$@"
+export PYTHONUNBUFFERED=1
+export PYTHONPATH=/app/lib/bbs-popcorn
+
+exec python3 -m bbs_popcorn.main "$@"

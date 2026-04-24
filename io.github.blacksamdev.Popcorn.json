@@ -4,15 +4,36 @@
   "runtime-version": "24.08",
   "sdk": "org.freedesktop.Sdk",
   "command": "bbs-popcorn",
+  "finish-args": [
+    "--share=network",
+    "--share=ipc",
+    "--socket=wayland",
+    "--socket=fallback-x11",
+    "--device=dri",
+    "--filesystem=xdg-config/bbs-popcorn:create",
+    "--talk-name=org.freedesktop.Flatpak"
+  ],
 
   "modules": [
+    {
+      "name": "python-deps",
+      "buildsystem": "simple",
+      "build-commands": [
+        "python3 -m pip install --prefix=/app yt-dlp"
+      ]
+    },
     {
       "name": "popcorn",
       "buildsystem": "simple",
       "build-commands": [
         "install -Dm755 wrapper.sh /app/bin/bbs-popcorn",
-        "install -Dm755 src/bbs_popcorn/main.py /app/bin/main.py",
-        "install -Dm755 src/bbs_popcorn/updater.py /app/bin/updater.py"
+        "mkdir -p /app/lib/bbs-popcorn/bbs_popcorn",
+        "install -Dm644 src/bbs_popcorn/__init__.py /app/lib/bbs-popcorn/bbs_popcorn/__init__.py",
+        "install -Dm644 src/bbs_popcorn/main.py /app/lib/bbs-popcorn/bbs_popcorn/main.py",
+        "install -Dm644 src/bbs_popcorn/app.py /app/lib/bbs-popcorn/bbs_popcorn/app.py",
+        "install -Dm644 src/bbs_popcorn/player.py /app/lib/bbs-popcorn/bbs_popcorn/player.py",
+        "install -Dm644 src/bbs_popcorn/updater.py /app/lib/bbs-popcorn/bbs_popcorn/updater.py",
+        "install -Dm644 src/bbs_popcorn/cookies.py /app/lib/bbs-popcorn/bbs_popcorn/cookies.py"
       ],
       "sources": [
         {

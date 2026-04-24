@@ -24,14 +24,28 @@ class Updater:
     # ----------------------------
     @staticmethod
     def mpv_available() -> bool:
-        return Updater.has_binary("mpv")
+        # Popcorn targets MPV from Flathub (host side).
+        cmd = ["flatpak", "info", "io.mpv.Mpv"]
+        result = Updater.run_host(cmd)
+        return result.returncode == 0
 
     @staticmethod
     def play(url: str):
-        if Updater.mpv_available():
-            return subprocess.run(["mpv", url])
-
-        return Updater.run_host(["mpv", url])
+        return Updater.run_host(
+            [
+                "flatpak",
+                "run",
+                "io.mpv.Mpv",
+                "--ytdl-format=bestvideo+bestaudio/best",
+                "--hwdec=auto-safe",
+                "--vo=gpu",
+                "--gpu-api=opengl",
+                "--force-window=yes",
+                "--ontop=yes",
+                "--volume=100",
+                url,
+            ]
+        )
 
     # ----------------------------
     # YT-DLP
@@ -42,10 +56,8 @@ class Updater:
 
     @staticmethod
     def download(url: str):
-        if Updater.ytdlp_available():
-            return subprocess.run(["yt-dlp", url])
-
-        return Updater.run_host(["yt-dlp", url])
+        # yt-dlp is expected inside this Flatpak runtime.
+        return subprocess.run(["yt-dlp", url])
 
     # ----------------------------
     # Diagnostic
@@ -56,3 +68,27 @@ class Updater:
             "mpv": Updater.mpv_available(),
             "yt-dlp": Updater.ytdlp_available()
         }
+
+
+class HostUpdater:
+    """
+    Minimal compatibility shim for existing app hook.
+    """
+
+    def __init__(self, on_done=None):
+        self.on_done = on_done
+
+    def check_and_update(self):
+        status = Updater.status()
+        issues = []
+
+        if not status["mpv"]:
+            issues.append("MPV Flatpak manquant: flatpak install flathub io.mpv.Mpv")
+        if not status["yt-dlp"]:
+            issues.append("yt-dlp introuvable dans l'application")
+
+        if self.on_done:
+            if issues:
+                self.on_done(" | ".join(issues))
+            else:
+                self.on_done("Dépendances OK")

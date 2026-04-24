@@ -5,13 +5,16 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install dependencies
         run: |
@@ -34,11 +37,18 @@ jobs:
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
-          set -e
+          set -euo pipefail
+          if [ -z "${GPG_PRIVATE_KEY:-}" ]; then
+            echo "ERROR: secret GPG_PRIVATE_KEY is empty or missing"
+            exit 1
+          fi
+
           mkdir -p ~/.gnupg
           chmod 700 ~/.gnupg
+          printf 'pinentry-mode loopback\n' > ~/.gnupg/gpg.conf
+          printf 'allow-loopback-pinentry\n' > ~/.gnupg/gpg-agent.conf
 
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --pinentry-mode loopback --import
 
           KEYID=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
 
@@ -46,6 +56,11 @@ jobs:
             echo "ERROR: KEYID not found"
             exit 1
           fi
+
+          gpg --batch --yes --list-secret-keys "$KEYID" >/dev/null || {
+            echo "ERROR: imported secret key cannot be listed"
+            exit 1
+          }
 
           echo "$KEYID" > KEYID.txt
           gpg --armor --export "$KEYID" > repo-signing.key
@@ -61,10 +76,17 @@ jobs:
 
       - name: Sign repo
         run: |
-          set -e
+          set -euo pipefail
 
           KEYID=$(cat KEYID.txt)
           echo "Signing repo with KEYID: $KEYID"
+          test -d repo || (echo "ERROR: repo missing before signing" && exit 1)
+          test -f repo/summary || (echo "ERROR: repo/summary missing before signing" && exit 1)
+
+          gpg --batch --yes --list-secret-keys "$KEYID" >/dev/null || {
+            echo "ERROR: secret key unavailable at signing step"
+            exit 1
+          }
 
           flatpak build-update-repo repo \
             --generate-static-deltas \
@@ -72,6 +94,7 @@ jobs:
 
           echo "=== verify signature files ==="
           ls -l repo | grep summary
+          test -f repo/summary.sig || (echo "ERROR: summary.sig missing after signing" && exit 1)
 
       - name: Export repo safely
         run: |
@@ -81,7 +104,7 @@ jobs:
           test -d repo || (echo "repo missing" && exit 1)
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: flatpak-repo
           path: |
@@ -94,12 +117,12 @@ jobs:
 
     steps:
       - name: Checkout gh-pages
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: gh-pages
 
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: flatpak-repo
           path: repo_bundle
