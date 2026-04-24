@@ -69,7 +69,7 @@ flatpak install bbs-popcorn io.github.blacksamdev.Popcorn
 ## Beta
 
 ```bash
-flatpak install --or-update ./bbs-popcorn-<version>.flatpak
+flatpak install --or-update ./bbs-popcorn-v0.4.0-beta1.flatpak
 flatpak run io.github.blacksamdev.Popcorn
 ```
 
