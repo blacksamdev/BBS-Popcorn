@@ -48,7 +48,7 @@ flatpak install -y flathub io.mpv.Mpv
 
 ### yt-dlp
 
-Aucune installation utilisateur nécessaire : `yt-dlp` est fourni dans le Flatpak Popcorn.
+Aucune installation utilisateur nécessaire : `yt-dlp` est fourni dans le Flatpak pOpcOrn.
 
 ---
 
@@ -94,7 +94,7 @@ WebKitGTK (interface YouTube)
         │
         ├── interactions utilisateur
         │
-        ├── yt-dlp (embarqué dans Popcorn)
+        ├── yt-dlp (embarqué dans pOpcOrn)
         │
         └── MPV (outil externe)
 ```
@@ -107,7 +107,7 @@ WebKitGTK (interface YouTube)
 |---|---|
 | Interface | Python + GTK4 + WebKitGTK |
 | Lecteur | MPV (Flatpak) |
-| Résolution flux | yt-dlp (embarqué dans Popcorn) |
+| Résolution flux | yt-dlp (embarqué dans pOpcOrn) |
 | Cookies | WebKitGTK stockage local |
 | Packaging | Flatpak |
 | Distribution | GitHub Pages |
