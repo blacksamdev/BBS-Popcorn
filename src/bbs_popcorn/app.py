@@ -153,7 +153,25 @@ class YtMpvApp(Gtk.Application):
         self.webview.connect("load-changed", self.on_load_changed)
 
         vbox.append(navbar)
-        vbox.append(self.webview)
+        self.content_overlay = Gtk.Overlay()
+        self.content_overlay.set_child(self.webview)
+
+        loading_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        loading_box.set_halign(Gtk.Align.CENTER)
+        loading_box.set_valign(Gtk.Align.CENTER)
+
+        self.loading_spinner = Gtk.Spinner()
+        self.loading_spinner.set_size_request(42, 42)
+        loading_box.append(self.loading_spinner)
+        loading_box.append(Gtk.Label(label="Chargement de la video..."))
+
+        self.loading_revealer = Gtk.Revealer()
+        self.loading_revealer.set_transition_type(Gtk.RevealerTransitionType.CROSSFADE)
+        self.loading_revealer.set_reveal_child(False)
+        self.loading_revealer.set_child(loading_box)
+
+        self.content_overlay.add_overlay(self.loading_revealer)
+        vbox.append(self.content_overlay)
 
         # ───────── Window ─────────
         self.win.set_child(vbox)
@@ -166,8 +184,8 @@ class YtMpvApp(Gtk.Application):
             self.win
         )
 
-        self.player.on_show_loading = lambda: None
-        self.player.on_hide_loading = lambda: None
+        self.player.on_show_loading = self._show_loading_overlay
+        self.player.on_hide_loading = self._hide_loading_overlay
 
         # ───────── Updater ─────────
         updater = HostUpdater(on_done=self._on_update_done)
@@ -236,3 +254,11 @@ class YtMpvApp(Gtk.Application):
     def _on_update_done(self, msg: str):
         print(msg)
         return False
+
+    def _show_loading_overlay(self):
+        self.loading_spinner.start()
+        self.loading_revealer.set_reveal_child(True)
+
+    def _hide_loading_overlay(self):
+        self.loading_revealer.set_reveal_child(False)
+        self.loading_spinner.stop()

@@ -1,4 +1,5 @@
 import re
+import time
 import threading
 from gi.repository import GLib
 
@@ -51,6 +52,8 @@ class MpvPlayer:
         GLib.idle_add(self._show_loading)
 
         url = self._prepare_url(url)
+        # Keep the loader visible briefly so users get immediate feedback.
+        time.sleep(0.35)
 
         GLib.idle_add(self._hide_for_mpv)
 
