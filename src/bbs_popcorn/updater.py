@@ -16,7 +16,13 @@ class Updater:
         return shutil.which(name) is not None
 
     @staticmethod
-    def run_host(args: list):
+    def run_host(args: list, quiet: bool = False):
+        if quiet:
+            return subprocess.run(
+                ["flatpak-spawn", "--host"] + args,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
         return subprocess.run(["flatpak-spawn", "--host"] + args)
 
     # ----------------------------
@@ -26,7 +32,7 @@ class Updater:
     def mpv_available() -> bool:
         # Popcorn targets MPV from Flathub (host side).
         cmd = ["flatpak", "info", "io.mpv.Mpv"]
-        result = Updater.run_host(cmd)
+        result = Updater.run_host(cmd, quiet=True)
         return result.returncode == 0
 
     @staticmethod

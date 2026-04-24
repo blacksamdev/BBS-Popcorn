@@ -9,7 +9,6 @@ gi.require_version("WebKit", "6.0")
 from gi.repository import Gtk, WebKit, GLib
 
 from bbs_popcorn.player import MpvPlayer
-from bbs_popcorn.updater import HostUpdater
 
 
 YOUTUBE_URL = "https://www.youtube.com"
@@ -125,6 +124,10 @@ class YtMpvApp(Gtk.Application):
 
         network_session = self.webview.get_network_session()
         cookie_manager = network_session.get_cookie_manager()
+        cookie_manager.set_persistent_storage(
+            self.cookie_db_path,
+            WebKit.CookiePersistentStorage.SQLITE
+        )
 
         cookie_manager.set_accept_policy(
             WebKit.CookieAcceptPolicy.ALWAYS
@@ -187,10 +190,6 @@ class YtMpvApp(Gtk.Application):
         self.player.on_show_loading = self._show_loading_overlay
         self.player.on_hide_loading = self._hide_loading_overlay
 
-        # ───────── Updater ─────────
-        updater = HostUpdater(on_done=self._on_update_done)
-        updater.check_and_update()
-
     # ───────── Navigation ─────────
 
     def on_url_entered(self, entry):
@@ -248,12 +247,6 @@ class YtMpvApp(Gtk.Application):
         url = message.to_string()
         print(f"[BBS Popcorn] Play: {url}")
         self.player.play(url)
-
-    # ───────── Update callback ─────────
-
-    def _on_update_done(self, msg: str):
-        print(msg)
-        return False
 
     def _show_loading_overlay(self):
         self.loading_spinner.start()
