@@ -59,13 +59,25 @@ jobs:
             build-dir \
             io.github.blacksamdev.Popcorn.json
 
-      - name: Export repo safely
+      - name: Sign repo
         run: |
           set -e
 
+          KEYID=$(cat KEYID.txt)
+          echo "Signing repo with KEYID: $KEYID"
+
+          flatpak build-update-repo repo \
+            --generate-static-deltas \
+            --gpg-sign="$KEYID"
+
+          echo "=== verify signature files ==="
+          ls -l repo | grep summary
+
+      - name: Export repo safely
+        run: |
+          set -e
           echo "=== repo check ==="
           ls -R repo
-
           test -d repo || (echo "repo missing" && exit 1)
 
       - name: Upload artifact
@@ -107,7 +119,6 @@ jobs:
       - name: Copy repo content
         run: |
           set -e
-
           if [ ! -d "repo_bundle/repo" ]; then
             echo "ERROR: repo missing in artifact"
             exit 1
@@ -119,15 +130,11 @@ jobs:
       - name: Commit and push GitHub Pages
         run: |
           set -e
-
           cd pages
           git init
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-
           git checkout -b gh-pages
-
           git add .
           git commit -m "Update Flatpak repo"
-
           git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages
