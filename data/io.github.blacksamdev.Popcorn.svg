@@ -1,16 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-
-      <!-- background -->
-      <rect width="128" height="128" rx="24" fill="#1a1a1a"/>
-
-      <!-- screen -->
-      <rect x="16" y="28" width="96" height="72" rx="12" fill="#FF0000"/>
-
-      <!-- play button -->
-      <polygon points="52,44 52,84 90,64" fill="white"/>
-
-      <!-- OO identity hint (remplace le texte) -->
-      <circle cx="48" cy="108" r="5" fill="#ffffff" opacity="0.7"/>
-      <circle cx="64" cy="108" r="5" fill="#ffffff" opacity="0.7"/>
-
+  <rect width="128" height="128" rx="24" fill="#f7f4ec"/>
+  <g fill="#fff8df">
+    <circle cx="36" cy="34" r="12"/>
+    <circle cx="52" cy="26" r="14"/>
+    <circle cx="68" cy="34" r="12"/>
+    <circle cx="84" cy="28" r="13"/>
+    <circle cx="96" cy="40" r="10"/>
+    <circle cx="24" cy="44" r="10"/>
+  </g>
+  <path d="M24 48h80l-10 56a8 8 0 0 1-8 7H42a8 8 0 0 1-8-7L24 48z" fill="#ffffff"/>
+  <path d="M31 48h14l8 63H42a8 8 0 0 1-8-7L31 48zM60 48h12v63H60zM83 48h14l-3 56a8 8 0 0 1-8 7H75l8-63z" fill="#e11d2e"/>
+  <rect x="24" y="48" width="80" height="6" rx="3" fill="#d9d4c7"/>
 </svg>

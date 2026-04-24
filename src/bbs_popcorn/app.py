@@ -171,6 +171,7 @@ class YtMpvApp(Gtk.Application):
         self.loading_revealer = Gtk.Revealer()
         self.loading_revealer.set_transition_type(Gtk.RevealerTransitionType.CROSSFADE)
         self.loading_revealer.set_reveal_child(False)
+        self.loading_revealer.set_can_target(False)
         self.loading_revealer.set_child(loading_box)
 
         self.content_overlay.add_overlay(self.loading_revealer)
@@ -249,9 +250,11 @@ class YtMpvApp(Gtk.Application):
         self.player.play(url)
 
     def _show_loading_overlay(self):
+        self.loading_revealer.set_can_target(True)
         self.loading_spinner.start()
         self.loading_revealer.set_reveal_child(True)
 
     def _hide_loading_overlay(self):
         self.loading_revealer.set_reveal_child(False)
         self.loading_spinner.stop()
+        self.loading_revealer.set_can_target(False)
