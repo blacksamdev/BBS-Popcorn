@@ -73,9 +73,11 @@ jobs:
 
       - name: Build Flatpak
         run: |
-          set -e
+          set -euo pipefail
+          KEYID=$(cat KEYID.txt)
           flatpak-builder \
             --repo=repo \
+            --gpg-sign="$KEYID" \
             --force-clean \
             build-dir \
             io.github.blacksamdev.Popcorn.json
