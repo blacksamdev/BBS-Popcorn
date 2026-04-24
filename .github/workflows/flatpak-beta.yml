@@ -1,0 +1,109 @@
+name: Flatpak Beta Release
+
+on:
+  push:
+    tags:
+      - "v*-beta*"
+  workflow_dispatch:
+    inputs:
+      beta_tag:
+        description: "Tag beta (ex: v0.4.0-beta1)"
+        required: false
+        default: ""
+
+env:
+  APP_ID: io.github.blacksamdev.Popcorn
+  MANIFEST: io.github.blacksamdev.Popcorn.json
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+permissions:
+  contents: write
+
+jobs:
+  beta-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Resolve beta version
+        id: version
+        run: |
+          set -euo pipefail
+          if [ -n "${{ github.event.inputs.beta_tag }}" ]; then
+            VERSION="${{ github.event.inputs.beta_tag }}"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME}"
+          else
+            VERSION="test-${GITHUB_RUN_NUMBER}"
+          fi
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "VERSION=${VERSION}" >> "${GITHUB_ENV}"
+
+      - name: Install Flatpak tooling
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+
+      - name: Setup Flathub and SDK
+        run: |
+          set -e
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.freedesktop.Sdk//24.08
+          sudo flatpak install -y flathub org.freedesktop.Platform//24.08
+
+      - name: Build Flatpak repo
+        run: |
+          set -e
+          flatpak-builder \
+            --repo=repo \
+            --force-clean \
+            build-dir \
+            "${MANIFEST}"
+
+      - name: Build installable beta bundle
+        run: |
+          set -euo pipefail
+          BUNDLE_NAME="bbs-popcorn-${VERSION}.flatpak"
+          flatpak build-bundle repo "${BUNDLE_NAME}" "${APP_ID}" \
+            --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
+          sha256sum "${BUNDLE_NAME}" > "${BUNDLE_NAME}.sha256"
+          {
+            echo "Version: ${VERSION}"
+            echo
+            echo "Installation:"
+            echo "flatpak install --or-update ./${BUNDLE_NAME}"
+            echo
+            echo "Launch:"
+            echo "flatpak run ${APP_ID}"
+          } > BETA-INSTALL.txt
+
+      - name: Upload beta artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: flatpak-beta-${{ steps.version.outputs.version }}
+          path: |
+            bbs-popcorn-${{ steps.version.outputs.version }}.flatpak
+            bbs-popcorn-${{ steps.version.outputs.version }}.flatpak.sha256
+            BETA-INSTALL.txt
+
+      - name: Create GitHub pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RELEASE_TAG="${VERSION}"
+          RELEASE_TITLE="BBS pOpcOrn ${VERSION} (beta)"
+          BUNDLE="bbs-popcorn-${VERSION}.flatpak"
+          CHECKSUM="${BUNDLE}.sha256"
+
+          gh release view "${RELEASE_TAG}" >/dev/null 2>&1 || \
+            gh release create "${RELEASE_TAG}" \
+              --target "${GITHUB_SHA}" \
+              --title "${RELEASE_TITLE}" \
+              --notes-file BETA-INSTALL.txt \
+              --prerelease
+
+          gh release upload "${RELEASE_TAG}" "${BUNDLE}" "${CHECKSUM}" --clobber
