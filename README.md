@@ -56,21 +56,12 @@ Aucune installation utilisateur nécessaire : `yt-dlp` est fourni dans le Flatpa
 
 Ajouter le dépôt Flatpak :
 ```bash
-flatpak remote-add --if-not-exists bbs-popcorn https://blacksamdev.github.io/BBS-Popcorn/bbs-popcorn.flatpakrepo
+flatpak remote-add --if-not-exists --from bbs-popcorn https://blacksamdev.github.io/BBS-Popcorn/bbs-popcorn.flatpakrepo
 ```
 
 Installer :
 ```bash
 flatpak install bbs-popcorn io.github.blacksamdev.Popcorn
-```
-
----
-
-## Beta
-
-```bash
-flatpak install --or-update ./bbs-popcorn-v0.4.0-beta1.flatpak
-flatpak run io.github.blacksamdev.Popcorn
 ```
 
 ---

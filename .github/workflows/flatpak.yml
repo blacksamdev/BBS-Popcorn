@@ -7,6 +7,12 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  APP_ID: io.github.blacksamdev.Popcorn
+  REPO_TITLE: BBS pOpcOrn
+  REPO_URL: https://blacksamdev.github.io/BBS-Popcorn/
+  REPO_HOMEPAGE: https://github.com/blacksamdev/BBS-Popcorn
+  REPO_DESCRIPTION: BBS pOpcOrn - Client YouTube via MPV
+  REPO_ICON: https://raw.githubusercontent.com/blacksamdev/BBS-Popcorn/main/data/io.github.blacksamdev.Popcorn.svg
 
 jobs:
   build:
@@ -95,6 +101,21 @@ jobs:
           echo "=== verify signature files ==="
           ls -l repo | grep summary
           test -f repo/summary.sig || (echo "ERROR: summary.sig missing after signing" && exit 1)
+
+      - name: Generate flatpakrepo descriptor
+        run: |
+          set -euo pipefail
+          KEYID=$(cat KEYID.txt)
+          GPG_KEY_BASE64=$(gpg --batch --yes --export "$KEYID" | base64 -w0)
+          cat > bbs-popcorn.flatpakrepo <<EOF
+          [Flatpak Repo]
+          Title=${REPO_TITLE}
+          Url=${REPO_URL}
+          Homepage=${REPO_HOMEPAGE}
+          Description=${REPO_DESCRIPTION}
+          Icon=${REPO_ICON}
+          GPGKey=${GPG_KEY_BASE64}
+          EOF
 
       - name: Export repo safely
         run: |
