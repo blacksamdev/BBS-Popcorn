@@ -54,6 +54,7 @@ class Updater:
         cmd = run_args + [
             "io.mpv.Mpv",
             "--ytdl-format=bestvideo+bestaudio/best",
+            "--cookies",
             "--hwdec=auto-safe",
             "--vo=gpu",
             "--gpu-api=opengl",
@@ -62,7 +63,7 @@ class Updater:
             "--volume=100",
         ]
         if cookies_path:
-            cmd.append(f"--ytdl-raw-options=cookies={cookies_path}")
+            cmd.append(f"--cookies-file={cookies_path}")
         cmd.append(url)
         return Updater.popen_host(cmd)
 
