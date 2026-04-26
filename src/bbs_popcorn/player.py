@@ -16,7 +16,9 @@ class MpvPlayer:
 
         self.on_show_loading = None
         self.on_hide_loading = None
-        self.min_loader_seconds = 0.8
+        self.min_loader_seconds = 1.8
+        self._play_lock = threading.Lock()
+        self._is_playing = False
 
     # ─────────────────────────────
     # cookies (optional)
@@ -43,6 +45,11 @@ class MpvPlayer:
     # ─────────────────────────────
 
     def play(self, url: str):
+        with self._play_lock:
+            if self._is_playing:
+                print("[BBS Popcorn] MPV already running, ignoring click.")
+                return
+            self._is_playing = True
         threading.Thread(target=self._launch, args=(url,), daemon=True).start()
 
     # ─────────────────────────────
@@ -50,20 +57,32 @@ class MpvPlayer:
     # ─────────────────────────────
 
     def _launch(self, url: str):
-        start_time = time.monotonic()
-        GLib.idle_add(self._show_loading)
+        try:
+            start_time = time.monotonic()
+            GLib.idle_add(self._show_loading)
 
-        url = self._prepare_url(url)
-        process = Updater.start_play(url)
-        elapsed = time.monotonic() - start_time
-        remaining = self.min_loader_seconds - elapsed
-        if remaining > 0:
-            time.sleep(remaining)
+            url = self._prepare_url(url)
+            cookies_path = self.get_cookies()
+            if not cookies_path:
+                print("[BBS Popcorn] Cookie export failed, aborting MPV launch.")
+                GLib.idle_add(self._hide_loading_only)
+                return
 
-        GLib.idle_add(self._hide_for_mpv)
-        process.wait()
+            process = Updater.start_play(url, cookies_path=cookies_path)
+            elapsed = time.monotonic() - start_time
+            remaining = self.min_loader_seconds - elapsed
+            if remaining > 0:
+                time.sleep(remaining)
 
-        GLib.idle_add(self._show_after_mpv)
+            GLib.idle_add(self._hide_for_mpv)
+            process.wait()
+            GLib.idle_add(self._show_after_mpv)
+        except Exception as exc:
+            print(f"[BBS Popcorn] MPV launch error: {exc}")
+            GLib.idle_add(self._hide_loading_only)
+        finally:
+            with self._play_lock:
+                self._is_playing = False
 
     # ─────────────────────────────
     # UI
@@ -78,6 +97,11 @@ class MpvPlayer:
         if self.on_hide_loading:
             self.on_hide_loading()
         self.win.set_visible(False)
+        return False
+
+    def _hide_loading_only(self):
+        if self.on_hide_loading:
+            self.on_hide_loading()
         return False
 
     def _show_after_mpv(self):

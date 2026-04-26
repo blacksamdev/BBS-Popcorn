@@ -40,27 +40,28 @@ class Updater:
         return result.returncode == 0
 
     @staticmethod
-    def play(url: str):
-        process = Updater.start_play(url)
+    def play(url: str, cookies_path: str = None):
+        process = Updater.start_play(url, cookies_path=cookies_path)
         return process.wait()
 
     @staticmethod
-    def start_play(url: str):
-        return Updater.popen_host(
-            [
-                "flatpak",
-                "run",
-                "io.mpv.Mpv",
-                "--ytdl-format=bestvideo+bestaudio/best",
-                "--hwdec=auto-safe",
-                "--vo=gpu",
-                "--gpu-api=opengl",
-                "--force-window=yes",
-                "--ontop=yes",
-                "--volume=100",
-                url,
-            ]
-        )
+    def start_play(url: str, cookies_path: str = None):
+        cmd = [
+            "flatpak",
+            "run",
+            "io.mpv.Mpv",
+            "--ytdl-format=bestvideo+bestaudio/best",
+            "--hwdec=auto-safe",
+            "--vo=gpu",
+            "--gpu-api=opengl",
+            "--force-window=yes",
+            "--ontop=yes",
+            "--volume=100",
+        ]
+        if cookies_path:
+            cmd.append(f"--cookies={cookies_path}")
+        cmd.append(url)
+        return Updater.popen_host(cmd)
 
     # ----------------------------
     # YT-DLP
