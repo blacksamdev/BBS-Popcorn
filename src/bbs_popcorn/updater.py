@@ -59,7 +59,7 @@ class Updater:
             "--volume=100",
         ]
         if cookies_path:
-            cmd.append(f"--cookies={cookies_path}")
+            cmd.append(f"--ytdl-raw-options=cookies={cookies_path}")
         cmd.append(url)
         return Updater.popen_host(cmd)
 

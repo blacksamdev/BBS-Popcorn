@@ -162,11 +162,26 @@ class YtMpvApp(Gtk.Application):
         loading_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         loading_box.set_halign(Gtk.Align.CENTER)
         loading_box.set_valign(Gtk.Align.CENTER)
+        loading_box.add_css_class("loading-overlay")
 
         self.loading_spinner = Gtk.Spinner()
-        self.loading_spinner.set_size_request(42, 42)
+        self.loading_spinner.set_size_request(64, 64)
         loading_box.append(self.loading_spinner)
         loading_box.append(Gtk.Label(label="Chargement de la video..."))
+
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(b"""
+            .loading-overlay {
+                background-color: rgba(34, 38, 43, 0.92);
+                border-radius: 12px;
+                padding: 18px 22px;
+            }
+        """)
+        Gtk.StyleContext.add_provider_for_display(
+            self.win.get_display(),
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
 
         self.loading_revealer = Gtk.Revealer()
         self.loading_revealer.set_transition_type(Gtk.RevealerTransitionType.CROSSFADE)

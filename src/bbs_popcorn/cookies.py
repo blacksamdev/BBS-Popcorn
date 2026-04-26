@@ -1,5 +1,7 @@
 import os
 import sqlite3
+import shutil
+import tempfile
 import time
 
 
@@ -9,12 +11,43 @@ KNOWN_SCHEMAS = [
     ("cookies", "host", "name", "value", "path", "expires", "secure"),
 ]
 
-ALLOWED_COLUMNS = {
-    "host", "name", "value", "path",
-    "expiry", "expires", "isSecure", "secure"
-}
-
 ALLOWED_TABLES = {"moz_cookies", "Cookie", "cookies"}
+
+EXPORT_QUERIES = {
+    "moz_cookies": """
+        SELECT
+            host,
+            CASE WHEN host LIKE '.%' THEN 'TRUE' ELSE 'FALSE' END,
+            path,
+            CASE WHEN isSecure = 1 THEN 'TRUE' ELSE 'FALSE' END,
+            expiry,
+            name,
+            value
+        FROM moz_cookies
+    """,
+    "Cookie": """
+        SELECT
+            host,
+            CASE WHEN host LIKE '.%' THEN 'TRUE' ELSE 'FALSE' END,
+            path,
+            CASE WHEN secure = 1 THEN 'TRUE' ELSE 'FALSE' END,
+            expires,
+            name,
+            value
+        FROM Cookie
+    """,
+    "cookies": """
+        SELECT
+            host,
+            CASE WHEN host LIKE '.%' THEN 'TRUE' ELSE 'FALSE' END,
+            path,
+            CASE WHEN secure = 1 THEN 'TRUE' ELSE 'FALSE' END,
+            expires,
+            name,
+            value
+        FROM cookies
+    """,
+}
 
 
 class CookieExporter:
@@ -25,27 +58,15 @@ class CookieExporter:
         self.sqlite_path = sqlite_path
         self.output_path = output_path
 
-    def _check(self, name: str, allowed: set) -> str:
-        if not name or name not in allowed:
-            raise ValueError("invalid identifier")
-        return name
-
     def detect_schema(self, cur):
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        tables = {r[0] for r in cur.fetchall()}
-
         for schema in KNOWN_SCHEMAS:
-            if schema[0] in tables:
+            table = schema[0]
+            cur.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+                (table,)
+            )
+            if cur.fetchone():
                 return schema
-
-        for table in tables & ALLOWED_TABLES:
-            cur.execute(f"PRAGMA table_info({table})")
-            cols = {r[1] for r in cur.fetchall()}
-
-            if {"host", "name", "value", "path"}.issubset(cols):
-                expires = "expiry" if "expiry" in cols else "expires"
-                secure = "isSecure" if "isSecure" in cols else "secure"
-                return (table, "host", "name", "value", "path", expires, secure)
 
         return None
 
@@ -53,29 +74,29 @@ class CookieExporter:
         if not os.path.exists(self.sqlite_path):
             return False
 
+        tmp_db = None
         try:
-            con = sqlite3.connect(self.sqlite_path)
+            # WebKit may keep the live DB busy; read from a temp copy.
+            with tempfile.NamedTemporaryFile(prefix="bbs-popcorn-cookies-", suffix=".sqlite", delete=False) as tmp_file:
+                tmp_db = tmp_file.name
+            shutil.copy2(self.sqlite_path, tmp_db)
+
+            con = sqlite3.connect(tmp_db)
             cur = con.cursor()
 
             schema = self.detect_schema(cur)
             if not schema:
+                con.close()
                 return False
 
-            table, host, name, value, path, expires, secure = schema
-
-            table = self._check(table, ALLOWED_TABLES)
-
-            query = f"""
-                SELECT
-                    {host},
-                    CASE WHEN {host} LIKE '.%' THEN 'TRUE' ELSE 'FALSE' END,
-                    {path},
-                    CASE WHEN {secure} = 1 THEN 'TRUE' ELSE 'FALSE' END,
-                    {expires},
-                    {name},
-                    {value}
-                FROM {table}
-            """
+            table, *_ = schema
+            if table not in ALLOWED_TABLES:
+                con.close()
+                return False
+            query = EXPORT_QUERIES.get(table)
+            if not query:
+                con.close()
+                return False
 
             cur.execute(query)
             rows = cur.fetchall()
@@ -96,3 +117,9 @@ class CookieExporter:
 
         except Exception:
             return False
+        finally:
+            if tmp_db and os.path.exists(tmp_db):
+                try:
+                    os.remove(tmp_db)
+                except OSError:
+                    pass
