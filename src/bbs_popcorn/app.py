@@ -272,15 +272,43 @@ class YtMpvApp(Gtk.Application):
                     }
                 };
 
+                const unmuteByUi = () => {
+                    const controls = document.querySelectorAll("button[aria-label]");
+                    for (const btn of controls) {
+                        const label = (btn.getAttribute("aria-label") || "").toLowerCase();
+                        if (
+                            label.includes("activer le son") ||
+                            label.includes("désactiver le mode muet") ||
+                            label.includes("desactiver le mode muet") ||
+                            label.includes("unmute")
+                        ) {
+                            btn.click();
+                            break;
+                        }
+                    }
+                };
+
                 enableAudio(false);
                 setTimeout(() => enableAudio(false), 250);
                 setTimeout(() => enableAudio(false), 800);
                 setTimeout(() => enableAudio(false), 1500);
+                setTimeout(unmuteByUi, 300);
+                setTimeout(unmuteByUi, 1000);
 
                 document.addEventListener('click', () => enableAudio(true), true);
 
-                const observer = new MutationObserver(() => enableAudio(false));
+                const observer = new MutationObserver(() => {
+                    enableAudio(false);
+                    unmuteByUi();
+                });
                 observer.observe(document.body, {childList: true, subtree: true});
+
+                const refresh = () => {
+                    enableAudio(false);
+                    unmuteByUi();
+                };
+                document.addEventListener("yt-navigate-finish", refresh, true);
+                setInterval(refresh, 1500);
             }
 
             function intercept(e) {
