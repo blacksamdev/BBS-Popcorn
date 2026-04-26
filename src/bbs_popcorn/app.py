@@ -263,7 +263,8 @@ class YtMpvApp(Gtk.Application):
 
                 if (
                     href.includes("youtube.com/watch") ||
-                    href.includes("youtube.com/playlist")
+                    href.includes("youtube.com/playlist") ||
+                    href.includes("youtube.com/shorts/")
                 ) {
                     e.preventDefault();
                     e.stopPropagation();
