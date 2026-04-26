@@ -24,6 +24,8 @@ def check_dependencies():
 
 
 def main():
+    GLib.set_prgname("bbs-popcorn")
+    GLib.set_application_name("BBS Popcorn")
     print("Popcorn starting...")
     check_dependencies()
 

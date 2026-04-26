@@ -262,53 +262,44 @@ class YtMpvApp(Gtk.Application):
             function forceShortsAudio() {
                 if (!location.pathname.includes('/shorts/')) return;
 
-                const enableAudio = (tryPlay) => {
+                const enableAudio = () => {
                     const video = document.querySelector('video');
                     if (!video) return;
                     video.muted = false;
                     if (video.volume === 0) video.volume = 1;
-                    if (tryPlay && video.paused) {
+                    if (video.paused) {
                         video.play().catch(() => {});
                     }
                 };
 
-                const unmuteByUi = () => {
-                    const controls = document.querySelectorAll("button[aria-label]");
-                    for (const btn of controls) {
-                        const label = (btn.getAttribute("aria-label") || "").toLowerCase();
-                        if (
-                            label.includes("activer le son") ||
-                            label.includes("désactiver le mode muet") ||
-                            label.includes("desactiver le mode muet") ||
-                            label.includes("unmute")
-                        ) {
-                            btn.click();
-                            break;
+                const muteSecondaryMedia = () => {
+                    const mainVideo = document.querySelector('video');
+                    const mediaNodes = document.querySelectorAll('audio, video');
+                    for (const node of mediaNodes) {
+                        if (node !== mainVideo) {
+                            node.muted = true;
+                            node.volume = 0;
                         }
                     }
                 };
 
-                enableAudio(false);
-                setTimeout(() => enableAudio(false), 250);
-                setTimeout(() => enableAudio(false), 800);
-                setTimeout(() => enableAudio(false), 1500);
-                setTimeout(unmuteByUi, 300);
-                setTimeout(unmuteByUi, 1000);
-
-                document.addEventListener('click', () => enableAudio(true), true);
+                enableAudio();
+                muteSecondaryMedia();
+                setTimeout(() => {
+                    enableAudio();
+                    muteSecondaryMedia();
+                }, 300);
 
                 const observer = new MutationObserver(() => {
-                    enableAudio(false);
-                    unmuteByUi();
+                    enableAudio();
+                    muteSecondaryMedia();
                 });
                 observer.observe(document.body, {childList: true, subtree: true});
 
-                const refresh = () => {
-                    enableAudio(false);
-                    unmuteByUi();
-                };
-                document.addEventListener("yt-navigate-finish", refresh, true);
-                setInterval(refresh, 1500);
+                document.addEventListener("yt-navigate-finish", () => {
+                    enableAudio();
+                    muteSecondaryMedia();
+                }, true);
             }
 
             function intercept(e) {
