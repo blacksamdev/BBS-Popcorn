@@ -9,10 +9,17 @@ from bbs_popcorn.updater import Updater
 
 class MpvPlayer:
 
-    def __init__(self, cookie_db_path: str, cookie_export_path: str, win):
+    def __init__(
+        self,
+        cookie_db_path: str,
+        cookie_export_path: str,
+        win,
+        playback_profile: str = "gaming"
+    ):
         self.cookie_db_path = cookie_db_path
         self.cookie_export_path = cookie_export_path
         self.win = win
+        self.playback_profile = playback_profile
 
         self.on_show_loading = None
         self.on_hide_loading = None
@@ -68,7 +75,11 @@ class MpvPlayer:
                 GLib.idle_add(self._hide_loading_only)
                 return
 
-            process = Updater.start_play(url, cookies_path=cookies_path)
+            process = Updater.start_play(
+                url,
+                cookies_path=cookies_path,
+                playback_profile=self.playback_profile
+            )
             elapsed = time.monotonic() - start_time
             remaining = self.min_loader_seconds - elapsed
             if remaining > 0:

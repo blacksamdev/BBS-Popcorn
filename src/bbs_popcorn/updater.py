@@ -3,6 +3,11 @@ import subprocess
 
 
 class Updater:
+    YTDL_FORMATS = {
+        "quality": "bestvideo+bestaudio/best",
+        "gaming": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+    }
+
     """
     Gestion des dépendances externes (mpv / yt-dlp)
     Compatible Flatpak (host fallback via flatpak-spawn).
@@ -40,20 +45,25 @@ class Updater:
         return result.returncode == 0
 
     @staticmethod
-    def play(url: str, cookies_path: str = None):
-        process = Updater.start_play(url, cookies_path=cookies_path)
+    def play(url: str, cookies_path: str = None, playback_profile: str = "gaming"):
+        process = Updater.start_play(
+            url,
+            cookies_path=cookies_path,
+            playback_profile=playback_profile
+        )
         return process.wait()
 
     @staticmethod
-    def start_play(url: str, cookies_path: str = None):
+    def start_play(url: str, cookies_path: str = None, playback_profile: str = "gaming"):
         run_args = ["flatpak", "run"]
         if cookies_path:
             # Allow MPV Flatpak to read exported cookies from this app data path.
             run_args.append(f"--filesystem={cookies_path}:ro")
 
+        ytdl_format = Updater.YTDL_FORMATS.get(playback_profile, Updater.YTDL_FORMATS["gaming"])
         cmd = run_args + [
             "io.mpv.Mpv",
-            "--ytdl-format=bestvideo+bestaudio/best",
+            f"--ytdl-format={ytdl_format}",
             "--cookies",
             "--hwdec=auto-safe",
             "--vo=gpu",

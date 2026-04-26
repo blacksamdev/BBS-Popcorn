@@ -26,15 +26,23 @@ SETTINGS_FILE = os.path.join(
 
 def load_settings() -> dict:
     os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
+    defaults = {"theme": "auto", "playback_profile": "gaming"}
 
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
-                return json.load(f)
+                loaded = json.load(f)
+                if not isinstance(loaded, dict):
+                    return defaults
+                settings = defaults.copy()
+                settings.update(loaded)
+                if settings.get("playback_profile") not in {"gaming", "quality"}:
+                    settings["playback_profile"] = "gaming"
+                return settings
         except Exception:
             pass
 
-    return {"theme": "auto"}
+    return defaults
 
 
 def save_settings(settings: dict):
@@ -200,7 +208,8 @@ class YtMpvApp(Gtk.Application):
         self.player = MpvPlayer(
             self.cookie_db_path,
             self.cookie_export_path,
-            self.win
+            self.win,
+            playback_profile=self.settings.get("playback_profile", "gaming")
         )
 
         self.player.on_show_loading = self._show_loading_overlay
