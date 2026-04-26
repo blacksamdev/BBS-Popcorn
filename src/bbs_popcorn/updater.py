@@ -9,6 +9,16 @@ class Updater:
         "quality": "bestvideo+bestaudio/best",
         "gaming": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
     }
+    YTDL_FALLBACK_FORMATS = {
+        "quality": (
+            "bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/"
+            "best[vcodec^=avc1]/best"
+        ),
+        "gaming": (
+            "bestvideo[height<=1080][vcodec^=avc1]+bestaudio[acodec^=mp4a]/"
+            "best[height<=1080][vcodec^=avc1]/best[height<=1080]"
+        ),
+    }
     PROFILE_FLAGS = {
         "quality": [],
         "gaming": ["--window-scale=0.8"],
@@ -51,22 +61,34 @@ class Updater:
         return result.returncode == 0
 
     @staticmethod
-    def play(url: str, cookies_path: str = None, playback_profile: str = "gaming"):
+    def play(
+        url: str,
+        cookies_path: str = None,
+        playback_profile: str = "gaming",
+        use_fallback_format: bool = False
+    ):
         process = Updater.start_play(
             url,
             cookies_path=cookies_path,
-            playback_profile=playback_profile
+            playback_profile=playback_profile,
+            use_fallback_format=use_fallback_format
         )
         return process.wait()
 
     @staticmethod
-    def start_play(url: str, cookies_path: str = None, playback_profile: str = "gaming"):
+    def start_play(
+        url: str,
+        cookies_path: str = None,
+        playback_profile: str = "gaming",
+        use_fallback_format: bool = False
+    ):
         run_args = ["flatpak", "run"]
         if cookies_path:
             # Allow MPV Flatpak to read exported cookies from this app data path.
             run_args.append(f"--filesystem={cookies_path}:ro")
 
-        ytdl_format = Updater.YTDL_FORMATS.get(playback_profile, Updater.YTDL_FORMATS["gaming"])
+        format_map = Updater.YTDL_FALLBACK_FORMATS if use_fallback_format else Updater.YTDL_FORMATS
+        ytdl_format = format_map.get(playback_profile, format_map["gaming"])
         profile_flags = Updater.PROFILE_FLAGS.get(playback_profile, Updater.PROFILE_FLAGS["gaming"])
         cmd = run_args + [
             "io.mpv.Mpv",

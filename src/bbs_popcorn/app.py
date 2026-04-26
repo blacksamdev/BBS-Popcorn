@@ -8,6 +8,7 @@ gi.require_version("WebKit", "6.0")
 
 from gi.repository import Gtk, WebKit, GLib
 
+from bbs_popcorn.logging_utils import log_event
 from bbs_popcorn.player import MpvPlayer
 
 
@@ -185,6 +186,13 @@ class YtMpvApp(Gtk.Application):
                 border-radius: 12px;
                 padding: 18px 22px;
             }
+            .status-bar {
+                background-color: rgba(34, 38, 43, 0.85);
+                padding: 4px 10px;
+            }
+            .status-bar label {
+                color: #d7dde5;
+            }
         """)
         Gtk.StyleContext.add_provider_for_display(
             self.win.get_display(),
@@ -201,6 +209,13 @@ class YtMpvApp(Gtk.Application):
         self.content_overlay.add_overlay(self.loading_revealer)
         vbox.append(self.content_overlay)
 
+        status_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        status_box.add_css_class("status-bar")
+        self.status_label = Gtk.Label(label="Pret.")
+        self.status_label.set_halign(Gtk.Align.START)
+        status_box.append(self.status_label)
+        vbox.append(status_box)
+
         # ───────── Window ─────────
         self.win.set_child(vbox)
         self.win.present()
@@ -216,6 +231,7 @@ class YtMpvApp(Gtk.Application):
         self.player.on_show_loading = self._show_loading_overlay
         self.player.on_hide_loading = self._hide_loading_overlay
         self.player.on_show_notice = self._show_loading_notice
+        self.player.on_status_change = self._set_status
 
     # ───────── Navigation ─────────
 
@@ -273,6 +289,7 @@ class YtMpvApp(Gtk.Application):
     def on_js_message(self, manager, message):
         url = message.to_string()
         print(f"[BBS Popcorn] Play: {url}")
+        log_event(f"Play request: {url}")
         self.player.play(url)
 
     def _show_loading_overlay(self):
@@ -296,4 +313,8 @@ class YtMpvApp(Gtk.Application):
 
     def _hide_notice_overlay(self):
         self._hide_loading_overlay()
+        return False
+
+    def _set_status(self, message: str):
+        self.status_label.set_text(message)
         return False
