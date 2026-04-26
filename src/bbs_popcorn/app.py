@@ -175,7 +175,8 @@ class YtMpvApp(Gtk.Application):
         self.loading_spinner = Gtk.Spinner()
         self.loading_spinner.set_size_request(64, 64)
         loading_box.append(self.loading_spinner)
-        loading_box.append(Gtk.Label(label="Chargement de la video..."))
+        self.loading_label = Gtk.Label(label="Chargement de la video...")
+        loading_box.append(self.loading_label)
 
         css_provider = Gtk.CssProvider()
         css_provider.load_from_data(b"""
@@ -214,6 +215,7 @@ class YtMpvApp(Gtk.Application):
 
         self.player.on_show_loading = self._show_loading_overlay
         self.player.on_hide_loading = self._hide_loading_overlay
+        self.player.on_show_notice = self._show_loading_notice
 
     # ───────── Navigation ─────────
 
@@ -274,6 +276,7 @@ class YtMpvApp(Gtk.Application):
         self.player.play(url)
 
     def _show_loading_overlay(self):
+        self.loading_label.set_text("Chargement de la video...")
         self.loading_revealer.set_can_target(True)
         self.loading_spinner.start()
         self.loading_revealer.set_reveal_child(True)
@@ -282,3 +285,15 @@ class YtMpvApp(Gtk.Application):
         self.loading_revealer.set_reveal_child(False)
         self.loading_spinner.stop()
         self.loading_revealer.set_can_target(False)
+
+    def _show_loading_notice(self, message: str):
+        self.loading_label.set_text(message)
+        self.loading_spinner.stop()
+        self.loading_revealer.set_can_target(False)
+        self.loading_revealer.set_reveal_child(True)
+        GLib.timeout_add(3000, self._hide_notice_overlay)
+        return False
+
+    def _hide_notice_overlay(self):
+        self._hide_loading_overlay()
+        return False

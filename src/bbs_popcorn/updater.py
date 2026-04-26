@@ -1,5 +1,7 @@
 import shutil
 import subprocess
+import json
+import time
 
 
 class Updater:
@@ -104,6 +106,40 @@ class Updater:
             "mpv": Updater.mpv_available(),
             "yt-dlp": Updater.ytdlp_available()
         }
+
+    @staticmethod
+    def get_upcoming_live_message(url: str):
+        if not Updater.ytdlp_available():
+            return None
+
+        try:
+            result = subprocess.run(
+                ["yt-dlp", "--skip-download", "--dump-single-json", url],
+                capture_output=True,
+                text=True,
+                timeout=12
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return None
+
+            info = json.loads(result.stdout)
+            if info.get("live_status") not in {"is_upcoming", "post_live"}:
+                return None
+
+            timestamp = (
+                info.get("release_timestamp")
+                or info.get("start_time")
+                or info.get("timestamp")
+            )
+            if isinstance(timestamp, (int, float)):
+                remaining = int(timestamp - time.time())
+                if remaining > 0:
+                    minutes = max(1, round(remaining / 60))
+                    return f"Live prevu dans environ {minutes} min."
+
+            return "Ce live n'a pas encore commence."
+        except Exception:
+            return None
 
 
 class HostUpdater:

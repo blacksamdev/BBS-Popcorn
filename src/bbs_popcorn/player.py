@@ -23,6 +23,7 @@ class MpvPlayer:
 
         self.on_show_loading = None
         self.on_hide_loading = None
+        self.on_show_notice = None
         self.min_loader_seconds = 1.8
         self._play_lock = threading.Lock()
         self._is_playing = False
@@ -87,13 +88,20 @@ class MpvPlayer:
 
             if process.poll() is not None:
                 print(f"[BBS Popcorn] MPV exited early with code {process.returncode}.")
-                GLib.idle_add(self._hide_loading_only)
+                notice = Updater.get_upcoming_live_message(url)
+                if notice and self.on_show_notice:
+                    GLib.idle_add(self.on_show_notice, notice)
+                else:
+                    GLib.idle_add(self._hide_loading_only)
                 return
 
             GLib.idle_add(self._hide_for_mpv)
             return_code = process.wait()
             if return_code != 0:
                 print(f"[BBS Popcorn] MPV exited with code {return_code}.")
+                notice = Updater.get_upcoming_live_message(url)
+                if notice and self.on_show_notice:
+                    GLib.idle_add(self.on_show_notice, notice)
             GLib.idle_add(self._show_after_mpv)
         except Exception as exc:
             print(f"[BBS Popcorn] MPV launch error: {exc}")
