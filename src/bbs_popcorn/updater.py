@@ -46,9 +46,12 @@ class Updater:
 
     @staticmethod
     def start_play(url: str, cookies_path: str = None):
-        cmd = [
-            "flatpak",
-            "run",
+        run_args = ["flatpak", "run"]
+        if cookies_path:
+            # Allow MPV Flatpak to read exported cookies from this app data path.
+            run_args.append(f"--filesystem={cookies_path}:ro")
+
+        cmd = run_args + [
             "io.mpv.Mpv",
             "--ytdl-format=bestvideo+bestaudio/best",
             "--hwdec=auto-safe",
