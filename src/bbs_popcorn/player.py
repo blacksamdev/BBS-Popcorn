@@ -16,6 +16,7 @@ class MpvPlayer:
 
         self.on_show_loading = None
         self.on_hide_loading = None
+        self.min_loader_seconds = 0.8
 
     # ─────────────────────────────
     # cookies (optional)
@@ -49,15 +50,18 @@ class MpvPlayer:
     # ─────────────────────────────
 
     def _launch(self, url: str):
+        start_time = time.monotonic()
         GLib.idle_add(self._show_loading)
 
         url = self._prepare_url(url)
-        # Keep the loader visible briefly so users get immediate feedback.
-        time.sleep(0.35)
+        process = Updater.start_play(url)
+        elapsed = time.monotonic() - start_time
+        remaining = self.min_loader_seconds - elapsed
+        if remaining > 0:
+            time.sleep(remaining)
 
         GLib.idle_add(self._hide_for_mpv)
-
-        Updater.play(url)
+        process.wait()
 
         GLib.idle_add(self._show_after_mpv)
 

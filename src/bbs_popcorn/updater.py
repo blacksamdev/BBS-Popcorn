@@ -25,6 +25,10 @@ class Updater:
             )
         return subprocess.run(["flatpak-spawn", "--host"] + args)
 
+    @staticmethod
+    def popen_host(args: list):
+        return subprocess.Popen(["flatpak-spawn", "--host"] + args)
+
     # ----------------------------
     # MPV
     # ----------------------------
@@ -37,7 +41,12 @@ class Updater:
 
     @staticmethod
     def play(url: str):
-        return Updater.run_host(
+        process = Updater.start_play(url)
+        return process.wait()
+
+    @staticmethod
+    def start_play(url: str):
+        return Updater.popen_host(
             [
                 "flatpak",
                 "run",
