@@ -146,6 +146,7 @@ class YtMpvApp(Gtk.Application):
         settings.set_enable_javascript(True)
         settings.set_enable_media(True)
         settings.set_enable_html5_local_storage(True)
+        settings.set_media_playback_requires_user_gesture(False)
 
         settings.set_user_agent(
             "Mozilla/5.0 (X11; Linux x86_64) "
@@ -255,19 +256,31 @@ class YtMpvApp(Gtk.Application):
     def inject_interceptor(self):
         js = """
         (function () {
+            if (window.__bbspopcornInjected) return;
+            window.__bbspopcornInjected = true;
+
             function forceShortsAudio() {
                 if (!location.pathname.includes('/shorts/')) return;
 
-                const enableAudio = () => {
+                const enableAudio = (tryPlay) => {
                     const video = document.querySelector('video');
                     if (!video) return;
                     video.muted = false;
                     if (video.volume === 0) video.volume = 1;
+                    if (tryPlay && video.paused) {
+                        video.play().catch(() => {});
+                    }
                 };
 
-                enableAudio();
-                setTimeout(enableAudio, 250);
-                setTimeout(enableAudio, 800);
+                enableAudio(false);
+                setTimeout(() => enableAudio(false), 250);
+                setTimeout(() => enableAudio(false), 800);
+                setTimeout(() => enableAudio(false), 1500);
+
+                document.addEventListener('click', () => enableAudio(true), true);
+
+                const observer = new MutationObserver(() => enableAudio(false));
+                observer.observe(document.body, {childList: true, subtree: true});
             }
 
             function intercept(e) {

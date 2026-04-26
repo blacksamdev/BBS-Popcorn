@@ -1,35 +1,35 @@
-# Security Policy
+# Politique de securite
 
-## Supported versions
+## Versions supportees
 
-Security fixes are provided on the `main` branch only.
-Beta builds are supported best-effort during active testing.
+Les correctifs de securite sont appliques sur la branche `main`.
+Les builds beta sont maintenus en best-effort pendant la phase de test.
 
-## Reporting a vulnerability
+## Signaler une vulnerabilite
 
-If you discover a security vulnerability in BBS Popcorn, please report it privately.
+Si vous decouvrez une vulnerabilite de securite dans BBS Popcorn, merci de la signaler en prive.
 
-Do **not** open a public GitHub issue for security reports.
+N'ouvrez **pas** d'issue publique GitHub pour un probleme de securite.
 
-Use GitHub private advisories:
+Utilisez plutot les advisories prives GitHub :
 [https://github.com/blacksamdev/BBS-Popcorn/security/advisories/new](https://github.com/blacksamdev/BBS-Popcorn/security/advisories/new)
 
-Please include:
-- clear reproduction steps
-- affected version / commit
-- potential impact
+Merci d'inclure :
+- les etapes de reproduction
+- la version ou le commit affecte
+- l'impact potentiel
 
-We will acknowledge receipt as soon as possible, investigate, and coordinate disclosure once a fix is available.
+Nous accusons reception rapidement, puis nous investiguons et coordonnons une divulgation responsable une fois le correctif disponible.
 
-## Project scope
+## Perimetre du projet
 
-In scope:
-- `src/` application Python code
-- `io.github.blacksamdev.Popcorn.json` Flatpak manifest
-- release and packaging automation under `.github/workflows/`
+Dans le perimetre :
+- `src/` (code Python de l'application)
+- `io.github.blacksamdev.Popcorn.json` (manifest Flatpak)
+- `.github/workflows/` (pipeline packaging et publication)
 
-Out of scope:
-- vulnerabilities in third-party components (`mpv`, `yt-dlp`, `WebKitGTK`, GNOME runtime)
-- local OS misconfiguration outside this project
+Hors perimetre :
+- vulnerabilites des composants tiers (`mpv`, `yt-dlp`, `WebKitGTK`, runtime GNOME)
+- problemes de configuration locale hors projet
 
-For third-party issues, report directly to the upstream project.
+Pour les composants tiers, merci de signaler directement au projet amont concerne.
