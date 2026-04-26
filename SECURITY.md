@@ -1,21 +1,35 @@
-# Politique de sécurité
+# Security Policy
 
-## Signalement des vulnérabilités
+## Supported versions
 
-Si vous découvrez une vulnérabilité de sécurité dans BBS pOpcOrn, merci de la signaler de manière responsable.
+Security fixes are provided on the `main` branch only.
+Beta builds are supported best-effort during active testing.
 
-**Ne créez pas d’issue publique GitHub pour une vulnérabilité de sécurité.**
+## Reporting a vulnerability
 
-Utilisez plutôt le système privé de signalement de vulnérabilités de GitHub :
-👉 https://github.com/blacksamdev/BBS-Popcorn/security/advisories/new
+If you discover a security vulnerability in BBS Popcorn, please report it privately.
 
-Nous répondrons aussi rapidement que possible et travaillerons avec vous pour résoudre le problème avant toute divulgation publique.
+Do **not** open a public GitHub issue for security reports.
 
-## Portée
+Use GitHub private advisories:
+[https://github.com/blacksamdev/BBS-Popcorn/security/advisories/new](https://github.com/blacksamdev/BBS-Popcorn/security/advisories/new)
 
-- `src/` — Code Python de l’application
-- `io.github.blacksamdev.Popcorn.json` — Manifest Flatpak
+Please include:
+- clear reproduction steps
+- affected version / commit
+- potential impact
 
-## Hors de portée
-- Vulnérabilités dans les composants tiers (MPV, yt-dlp, WebKitGTK)
-- Merci de les signaler directement à leurs projets respectifs.
+We will acknowledge receipt as soon as possible, investigate, and coordinate disclosure once a fix is available.
+
+## Project scope
+
+In scope:
+- `src/` application Python code
+- `io.github.blacksamdev.Popcorn.json` Flatpak manifest
+- release and packaging automation under `.github/workflows/`
+
+Out of scope:
+- vulnerabilities in third-party components (`mpv`, `yt-dlp`, `WebKitGTK`, GNOME runtime)
+- local OS misconfiguration outside this project
+
+For third-party issues, report directly to the upstream project.

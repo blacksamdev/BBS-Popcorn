@@ -255,6 +255,21 @@ class YtMpvApp(Gtk.Application):
     def inject_interceptor(self):
         js = """
         (function () {
+            function forceShortsAudio() {
+                if (!location.pathname.includes('/shorts/')) return;
+
+                const enableAudio = () => {
+                    const video = document.querySelector('video');
+                    if (!video) return;
+                    video.muted = false;
+                    if (video.volume === 0) video.volume = 1;
+                };
+
+                enableAudio();
+                setTimeout(enableAudio, 250);
+                setTimeout(enableAudio, 800);
+            }
+
             function intercept(e) {
                 const a = e.target.closest('a[href]');
                 if (!a) return;
@@ -273,6 +288,7 @@ class YtMpvApp(Gtk.Application):
 
             document.removeEventListener('click', intercept, true);
             document.addEventListener('click', intercept, true);
+            forceShortsAudio();
         })();
         """
 
