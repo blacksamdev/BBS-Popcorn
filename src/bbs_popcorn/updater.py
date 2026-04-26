@@ -7,6 +7,10 @@ class Updater:
         "quality": "bestvideo+bestaudio/best",
         "gaming": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
     }
+    PROFILE_FLAGS = {
+        "quality": [],
+        "gaming": ["--window-scale=0.8"],
+    }
 
     """
     Gestion des dépendances externes (mpv / yt-dlp)
@@ -61,6 +65,7 @@ class Updater:
             run_args.append(f"--filesystem={cookies_path}:ro")
 
         ytdl_format = Updater.YTDL_FORMATS.get(playback_profile, Updater.YTDL_FORMATS["gaming"])
+        profile_flags = Updater.PROFILE_FLAGS.get(playback_profile, Updater.PROFILE_FLAGS["gaming"])
         cmd = run_args + [
             "io.mpv.Mpv",
             f"--ytdl-format={ytdl_format}",
@@ -72,6 +77,7 @@ class Updater:
             "--ontop=yes",
             "--volume=100",
         ]
+        cmd.extend(profile_flags)
         if cookies_path:
             cmd.append(f"--cookies-file={cookies_path}")
         cmd.append(url)
