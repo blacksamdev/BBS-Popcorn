@@ -480,7 +480,19 @@ class YtMpvApp(Gtk.Application):
         scale_row.append(self.scale_slider)
         box.append(scale_row)
 
+        help_label = Gtk.Label(
+            label=(
+                "Lecture externe : la video s'ouvre dans MPV.\n"
+                "Pour revenir a YouTube, fermez la fenetre MPV."
+            )
+        )
+        help_label.set_xalign(0)
+        help_label.set_wrap(True)
+        help_label.set_max_width_chars(36)
+        box.append(help_label)
+
         popover.set_child(box)
+        self._sync_scale_sensitivity()
         return popover
 
     def _on_scale_changed(self, scale):
@@ -493,6 +505,7 @@ class YtMpvApp(Gtk.Application):
         self.settings["quality_target"] = self.quality_combo.get_active_text() or "1080"
         self.settings["quality_bias"] = self.bias_combo.get_active_id() or "high"
         self.settings["window_mode"] = self.mode_combo.get_active_id() or "windowed"
+        self._sync_scale_sensitivity()
         self._save_and_apply_settings()
 
     def _save_and_apply_settings(self):
@@ -506,3 +519,9 @@ class YtMpvApp(Gtk.Application):
             window_mode=self.settings.get("window_mode", "windowed"),
             window_scale_percent=int(self.settings.get("window_scale_percent", 80)),
         )
+
+    def _sync_scale_sensitivity(self):
+        window_mode = self.settings.get("window_mode", "windowed")
+        enabled = window_mode != "fullscreen"
+        self.scale_slider.set_sensitive(enabled)
+        self.scale_label.set_sensitive(enabled)
