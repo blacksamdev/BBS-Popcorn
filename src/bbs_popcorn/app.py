@@ -108,6 +108,7 @@ class YtMpvApp(Gtk.Application):
     # ───────────── Activation ─────────────
 
     def on_activate(self, app):
+        self._harden_cookie_paths()
         self.win = Gtk.ApplicationWindow(application=app)
         self.win.set_title("BBS Popcorn")
         self.win.set_default_size(1280, 800)
@@ -159,9 +160,7 @@ class YtMpvApp(Gtk.Application):
             WebKit.CookiePersistentStorage.SQLITE
         )
 
-        cookie_manager.set_accept_policy(
-            WebKit.CookieAcceptPolicy.ALWAYS
-        )
+        cookie_manager.set_accept_policy(WebKit.CookieAcceptPolicy.NO_THIRD_PARTY)
 
         settings = self.webview.get_settings()
         settings.set_enable_javascript(True)
@@ -255,6 +254,21 @@ class YtMpvApp(Gtk.Application):
         self.player.on_show_notice = self._show_loading_notice
         self.player.on_status_change = self._set_status
         self._apply_player_settings()
+
+    def _harden_cookie_paths(self):
+        state_dir = os.path.dirname(self.cookie_db_path)
+        os.makedirs(state_dir, mode=0o700, exist_ok=True)
+        try:
+            os.chmod(state_dir, 0o700)
+        except OSError:
+            pass
+
+        for path in (self.cookie_db_path, self.cookie_export_path):
+            if os.path.exists(path):
+                try:
+                    os.chmod(path, 0o600)
+                except OSError:
+                    pass
 
     # ───────── Navigation ─────────
 

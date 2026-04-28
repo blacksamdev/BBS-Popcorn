@@ -58,6 +58,22 @@ class CookieExporter:
         self.sqlite_path = sqlite_path
         self.output_path = output_path
 
+    def _is_allowed_cookie_host(self, host: str) -> bool:
+        if not host:
+            return False
+        normalized = host.lstrip(".").lower()
+        allowed_domains = (
+            "youtube.com",
+            "youtu.be",
+            "google.com",
+            "googlevideo.com",
+            "ytimg.com",
+        )
+        return any(
+            normalized == domain or normalized.endswith(f".{domain}")
+            for domain in allowed_domains
+        )
+
     def detect_schema(self, cur):
         for schema in KNOWN_SCHEMAS:
             table = schema[0]
@@ -75,6 +91,7 @@ class CookieExporter:
             return False
 
         tmp_db = None
+        tmp_output = None
         try:
             # WebKit may keep the live DB busy; read from a temp copy.
             with tempfile.NamedTemporaryFile(prefix="bbs-popcorn-cookies-", suffix=".sqlite", delete=False) as tmp_file:
@@ -102,16 +119,29 @@ class CookieExporter:
             rows = cur.fetchall()
             con.close()
 
-            os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
+            output_dir = os.path.dirname(self.output_path)
+            os.makedirs(output_dir, mode=0o700, exist_ok=True)
 
-            with open(self.output_path, "w") as f:
+            fd, tmp_output = tempfile.mkstemp(
+                prefix="cookies-",
+                suffix=".txt",
+                dir=output_dir
+            )
+            os.close(fd)
+            os.chmod(tmp_output, 0o600)
+
+            with open(tmp_output, "w", encoding="utf-8") as f:
                 f.write(self.NETSCAPE_HEADER)
 
                 for host, sub, path, secure, exp, name, val in rows:
+                    if not self._is_allowed_cookie_host(host):
+                        continue
                     if not exp:
                         exp = int(time.time()) + 31536000
-
                     f.write(f"{host}\t{sub}\t{path}\t{secure}\t{exp}\t{name}\t{val}\n")
+
+            os.replace(tmp_output, self.output_path)
+            os.chmod(self.output_path, 0o600)
 
             return True
 
@@ -121,5 +151,10 @@ class CookieExporter:
             if tmp_db and os.path.exists(tmp_db):
                 try:
                     os.remove(tmp_db)
+                except OSError:
+                    pass
+            if tmp_output and os.path.exists(tmp_output):
+                try:
+                    os.remove(tmp_output)
                 except OSError:
                     pass
