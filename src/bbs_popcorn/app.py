@@ -27,7 +27,14 @@ SETTINGS_FILE = os.path.join(
 
 def load_settings() -> dict:
     os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
-    defaults = {"theme": "auto", "playback_profile": "gaming"}
+    defaults = {
+        "theme": "auto",
+        "playback_profile": "gaming",
+        "quality_target": "1080",
+        "quality_bias": "high",
+        "window_mode": "windowed",
+        "window_scale_percent": 80,
+    }
 
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -39,6 +46,17 @@ def load_settings() -> dict:
                 settings.update(loaded)
                 if settings.get("playback_profile") not in {"gaming", "quality"}:
                     settings["playback_profile"] = "gaming"
+                if settings.get("quality_target") not in {"2160", "1440", "1080", "720", "480"}:
+                    settings["quality_target"] = "1080"
+                if settings.get("quality_bias") not in {"high", "low"}:
+                    settings["quality_bias"] = "high"
+                if settings.get("window_mode") not in {"fullscreen", "windowed"}:
+                    settings["window_mode"] = "windowed"
+                try:
+                    scale = int(settings.get("window_scale_percent", 80))
+                except Exception:
+                    scale = 80
+                settings["window_scale_percent"] = max(50, min(100, scale))
                 return settings
         except Exception:
             pass
@@ -107,8 +125,11 @@ class YtMpvApp(Gtk.Application):
         self.url_bar = Gtk.Entry()
         self.url_bar.set_hexpand(True)
         self.url_bar.set_text(YOUTUBE_URL)
+        self.url_bar.set_editable(False)
+        self.url_bar.set_can_focus(False)
 
         btn_settings = Gtk.MenuButton(label="⚙")
+        btn_settings.set_popover(self._build_settings_popover())
 
         navbar.append(btn_back)
         navbar.append(btn_forward)
@@ -161,9 +182,9 @@ class YtMpvApp(Gtk.Application):
         btn_forward.connect("clicked", lambda _: self.webview.go_forward())
         btn_reload.connect("clicked", lambda _: self.webview.reload())
         btn_home.connect("clicked", lambda _: self.webview.load_uri(YOUTUBE_URL))
-        self.url_bar.connect("activate", self.on_url_entered)
 
         self.webview.connect("load-changed", self.on_load_changed)
+        self.webview.connect("decide-policy", self.on_decide_policy)
 
         vbox.append(navbar)
         self.content_overlay = Gtk.Overlay()
@@ -233,16 +254,9 @@ class YtMpvApp(Gtk.Application):
         self.player.on_hide_loading = self._hide_loading_overlay
         self.player.on_show_notice = self._show_loading_notice
         self.player.on_status_change = self._set_status
+        self._apply_player_settings()
 
     # ───────── Navigation ─────────
-
-    def on_url_entered(self, entry):
-        url = entry.get_text()
-
-        if not url.startswith("http"):
-            url = "https://" + url
-
-        self.webview.load_uri(url)
 
     def on_load_changed(self, webview, event):
         if event == WebKit.LoadEvent.COMMITTED:
@@ -250,6 +264,29 @@ class YtMpvApp(Gtk.Application):
 
         if event == WebKit.LoadEvent.FINISHED:
             self.inject_interceptor()
+
+    def on_decide_policy(self, webview, decision, decision_type):
+        if decision_type != WebKit.PolicyDecisionType.NAVIGATION_ACTION:
+            return False
+        request = decision.get_request()
+        if not request:
+            return False
+        uri = request.get_uri() or ""
+        if self._is_allowed_uri(uri):
+            return False
+        decision.ignore()
+        self._set_status("Navigation hors YouTube bloquee.")
+        return True
+
+    def _is_allowed_uri(self, uri: str) -> bool:
+        allowed_prefixes = (
+            "https://www.youtube.com",
+            "https://youtube.com",
+            "https://m.youtube.com",
+            "https://youtu.be",
+            "about:blank",
+        )
+        return uri.startswith(allowed_prefixes)
 
     # ───────── JS injection ─────────
 
@@ -366,3 +403,92 @@ class YtMpvApp(Gtk.Application):
     def _set_status(self, message: str):
         self.status_label.set_text(message)
         return False
+
+    def _build_settings_popover(self):
+        popover = Gtk.Popover()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box.set_margin_top(8)
+        box.set_margin_bottom(8)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+
+        quality_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        quality_label = Gtk.Label(label="Qualite max:")
+        quality_label.set_xalign(0)
+        quality_row.append(quality_label)
+        self.quality_combo = Gtk.ComboBoxText()
+        for q in ["2160", "1440", "1080", "720", "480"]:
+            self.quality_combo.append_text(q)
+        self.quality_combo.set_active(["2160", "1440", "1080", "720", "480"].index(self.settings["quality_target"]))
+        self.quality_combo.connect("changed", self._on_settings_changed)
+        quality_row.append(self.quality_combo)
+        box.append(quality_row)
+
+        bias_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        bias_label = Gtk.Label(label="Priorite:")
+        bias_label.set_xalign(0)
+        bias_row.append(bias_label)
+        self.bias_combo = Gtk.ComboBoxText()
+        self.bias_combo.append("high", "Plus haute")
+        self.bias_combo.append("low", "Plus basse")
+        self.bias_combo.set_active_id(self.settings["quality_bias"])
+        self.bias_combo.connect("changed", self._on_settings_changed)
+        bias_row.append(self.bias_combo)
+        box.append(bias_row)
+
+        mode_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        mode_label = Gtk.Label(label="Mode fenetre:")
+        mode_label.set_xalign(0)
+        mode_row.append(mode_label)
+        self.mode_combo = Gtk.ComboBoxText()
+        self.mode_combo.append("windowed", "Fenetre")
+        self.mode_combo.append("fullscreen", "Plein ecran")
+        self.mode_combo.set_active_id(self.settings["window_mode"])
+        self.mode_combo.connect("changed", self._on_settings_changed)
+        mode_row.append(self.mode_combo)
+        box.append(mode_row)
+
+        scale_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.scale_label = Gtk.Label(label=f"Taille: {self.settings['window_scale_percent']}%")
+        self.scale_label.set_xalign(0)
+        scale_row.append(self.scale_label)
+        self.scale_adjustment = Gtk.Adjustment(
+            value=float(self.settings["window_scale_percent"]),
+            lower=50.0,
+            upper=100.0,
+            step_increment=5.0,
+            page_increment=10.0,
+            page_size=0.0
+        )
+        self.scale_slider = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=self.scale_adjustment)
+        self.scale_slider.set_draw_value(False)
+        self.scale_slider.connect("value-changed", self._on_scale_changed)
+        scale_row.append(self.scale_slider)
+        box.append(scale_row)
+
+        popover.set_child(box)
+        return popover
+
+    def _on_scale_changed(self, scale):
+        value = int(scale.get_value())
+        self.scale_label.set_text(f"Taille: {value}%")
+        self.settings["window_scale_percent"] = value
+        self._save_and_apply_settings()
+
+    def _on_settings_changed(self, *_args):
+        self.settings["quality_target"] = self.quality_combo.get_active_text() or "1080"
+        self.settings["quality_bias"] = self.bias_combo.get_active_id() or "high"
+        self.settings["window_mode"] = self.mode_combo.get_active_id() or "windowed"
+        self._save_and_apply_settings()
+
+    def _save_and_apply_settings(self):
+        save_settings(self.settings)
+        self._apply_player_settings()
+
+    def _apply_player_settings(self):
+        self.player.update_playback_settings(
+            quality_target=self.settings.get("quality_target", "1080"),
+            quality_bias=self.settings.get("quality_bias", "high"),
+            window_mode=self.settings.get("window_mode", "windowed"),
+            window_scale_percent=int(self.settings.get("window_scale_percent", 80)),
+        )

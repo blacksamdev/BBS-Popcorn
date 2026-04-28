@@ -21,6 +21,10 @@ class MpvPlayer:
         self.cookie_export_path = cookie_export_path
         self.win = win
         self.playback_profile = playback_profile
+        self.quality_target = "1080"
+        self.quality_bias = "high"
+        self.window_mode = "windowed"
+        self.window_scale_percent = 80
 
         self.on_show_loading = None
         self.on_hide_loading = None
@@ -63,6 +67,18 @@ class MpvPlayer:
             self._is_playing = True
         self._status("Preparation de la lecture...")
         threading.Thread(target=self._launch, args=(url,), daemon=True).start()
+
+    def update_playback_settings(
+        self,
+        quality_target: str,
+        quality_bias: str,
+        window_mode: str,
+        window_scale_percent: int
+    ):
+        self.quality_target = quality_target
+        self.quality_bias = quality_bias
+        self.window_mode = window_mode
+        self.window_scale_percent = window_scale_percent
 
     # ─────────────────────────────
     # launch mpv
@@ -156,7 +172,11 @@ class MpvPlayer:
             url,
             cookies_path=cookies_path,
             playback_profile=self.playback_profile,
-            use_fallback_format=use_fallback_format
+            use_fallback_format=use_fallback_format,
+            quality_target=self.quality_target,
+            quality_bias=self.quality_bias,
+            window_mode=self.window_mode,
+            window_scale_percent=self.window_scale_percent
         )
 
     def _retry_with_fallback(self, url: str, cookies_path: str) -> bool:

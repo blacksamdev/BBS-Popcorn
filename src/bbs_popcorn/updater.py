@@ -23,6 +23,8 @@ class Updater:
         "quality": [],
         "gaming": ["--window-scale=0.8"],
     }
+    QUALITY_TARGETS = {"2160", "1440", "1080", "720", "480"}
+    QUALITY_BIASES = {"high", "low"}
 
     """
     Gestion des dépendances externes (mpv / yt-dlp)
@@ -80,15 +82,45 @@ class Updater:
         url: str,
         cookies_path: str = None,
         playback_profile: str = "gaming",
-        use_fallback_format: bool = False
+        use_fallback_format: bool = False,
+        quality_target: str = "1080",
+        quality_bias: str = "high",
+        window_mode: str = "windowed",
+        window_scale_percent: int = 80
     ):
         run_args = ["flatpak", "run"]
         if cookies_path:
             # Allow MPV Flatpak to read exported cookies from this app data path.
             run_args.append(f"--filesystem={cookies_path}:ro")
 
-        format_map = Updater.YTDL_FALLBACK_FORMATS if use_fallback_format else Updater.YTDL_FORMATS
-        ytdl_format = format_map.get(playback_profile, format_map["gaming"])
+        if quality_target not in Updater.QUALITY_TARGETS:
+            quality_target = "1080"
+        if quality_bias not in Updater.QUALITY_BIASES:
+            quality_bias = "high"
+
+        if use_fallback_format:
+            if quality_bias == "low":
+                ytdl_format = (
+                    f"worstvideo[height<={quality_target}][vcodec^=avc1]+"
+                    f"worstaudio[acodec^=mp4a]/worst[height<={quality_target}]"
+                )
+            else:
+                ytdl_format = (
+                    f"bestvideo[height<={quality_target}][vcodec^=avc1]+"
+                    f"bestaudio[acodec^=mp4a]/best[height<={quality_target}]"
+                )
+        else:
+            if quality_bias == "low":
+                ytdl_format = (
+                    f"worstvideo[height<={quality_target}]+"
+                    f"worstaudio/worst[height<={quality_target}]"
+                )
+            else:
+                ytdl_format = (
+                    f"bestvideo[height<={quality_target}]+"
+                    f"bestaudio/best[height<={quality_target}]"
+                )
+
         profile_flags = Updater.PROFILE_FLAGS.get(playback_profile, Updater.PROFILE_FLAGS["gaming"])
         cmd = run_args + [
             "io.mpv.Mpv",
@@ -99,9 +131,16 @@ class Updater:
             "--gpu-api=opengl",
             "--force-window=yes",
             "--ontop=yes",
+            "--title=BBS Popcorn - Fermez cette fenetre pour retourner sur YouTube",
             "--volume=100",
         ]
         cmd.extend(profile_flags)
+        if window_mode == "fullscreen":
+            cmd.append("--fullscreen=yes")
+        else:
+            cmd.append("--fullscreen=no")
+            scale = max(50, min(100, int(window_scale_percent))) / 100.0
+            cmd.append(f"--window-scale={scale:.2f}")
         if cookies_path:
             cmd.append(f"--cookies-file={cookies_path}")
         cmd.append(url)
