@@ -131,7 +131,7 @@ class Updater:
             "--gpu-api=opengl",
             "--force-window=yes",
             "--ontop=yes",
-            "--title=BBS Popcorn - Fermez cette fenetre pour retourner sur YouTube",
+            "--title=BBS pOpcOrn - ${media-title} -------> Fermez cette fenetre pour retourner sur youtube",
             "--volume=100",
         ]
         cmd.extend(profile_flags)

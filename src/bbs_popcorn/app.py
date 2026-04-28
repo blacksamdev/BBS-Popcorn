@@ -310,6 +310,20 @@ class YtMpvApp(Gtk.Application):
             if (window.__bbspopcornInjected) return;
             window.__bbspopcornInjected = true;
 
+            function disableSpeechApis() {
+                try {
+                    if (window.speechSynthesis) {
+                        window.speechSynthesis.cancel();
+                        window.speechSynthesis.speak = function () {};
+                    }
+                } catch (_) {}
+
+                try {
+                    window.SpeechRecognition = undefined;
+                    window.webkitSpeechRecognition = undefined;
+                } catch (_) {}
+            }
+
             function forceShortsAudio() {
                 if (!location.pathname.includes('/shorts/')) return;
 
@@ -371,6 +385,7 @@ class YtMpvApp(Gtk.Application):
 
             document.removeEventListener('click', intercept, true);
             document.addEventListener('click', intercept, true);
+            disableSpeechApis();
             forceShortsAudio();
         })();
         """
@@ -478,6 +493,10 @@ class YtMpvApp(Gtk.Application):
         self.scale_slider.set_draw_value(False)
         self.scale_slider.connect("value-changed", self._on_scale_changed)
         scale_row.append(self.scale_slider)
+        self.scale_spin = Gtk.SpinButton(adjustment=self.scale_adjustment, climb_rate=1.0, digits=0)
+        self.scale_spin.set_numeric(True)
+        self.scale_spin.connect("value-changed", self._on_scale_changed)
+        scale_row.append(self.scale_spin)
         box.append(scale_row)
 
         help_label = Gtk.Label(
@@ -525,3 +544,4 @@ class YtMpvApp(Gtk.Application):
         enabled = window_mode != "fullscreen"
         self.scale_slider.set_sensitive(enabled)
         self.scale_label.set_sensitive(enabled)
+        self.scale_spin.set_sensitive(enabled)
