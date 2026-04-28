@@ -1,6 +1,7 @@
 import re
 import time
 import threading
+import os
 from gi.repository import GLib
 
 from bbs_popcorn.cookies import CookieExporter
@@ -85,6 +86,7 @@ class MpvPlayer:
     # ─────────────────────────────
 
     def _launch(self, url: str):
+        cookies_path = None
         try:
             start_time = time.monotonic()
             GLib.idle_add(self._show_loading)
@@ -134,6 +136,7 @@ class MpvPlayer:
             self._status("Erreur de lancement video.")
             GLib.idle_add(self._hide_loading_only)
         finally:
+            self._cleanup_exported_cookies(cookies_path)
             with self._play_lock:
                 self._is_playing = False
 
@@ -195,3 +198,16 @@ class MpvPlayer:
             self._status("Lecture terminee.")
         GLib.idle_add(self._show_after_mpv)
         return True
+
+    def _cleanup_exported_cookies(self, cookies_path: str):
+        if not cookies_path:
+            return
+        if cookies_path != self.cookie_export_path:
+            return
+        if not os.path.exists(cookies_path):
+            return
+        try:
+            os.remove(cookies_path)
+            log_event("cookies.txt supprime apres lecture MPV.")
+        except OSError as exc:
+            log_event(f"echec suppression cookies.txt: {exc}")

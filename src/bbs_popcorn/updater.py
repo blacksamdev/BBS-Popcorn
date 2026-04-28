@@ -21,7 +21,7 @@ class Updater:
     }
     PROFILE_FLAGS = {
         "quality": [],
-        "gaming": ["--window-scale=0.8"],
+        "gaming": [],
     }
     QUALITY_TARGETS = {"2160", "1440", "1080", "720", "480"}
     QUALITY_BIASES = {"high", "low"}
