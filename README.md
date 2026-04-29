@@ -1,5 +1,7 @@
 # BBS pOpcOrn 🍿
 
+🇬🇧 [English version](README.en.md)
+
 **YouTube via MPV**
 
 BBS pOpcOrn est un client YouTube Linux basé sur WebKitGTK.
