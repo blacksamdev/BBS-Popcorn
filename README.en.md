@@ -148,14 +148,6 @@ From the `⚙` icon in the application:
 
 ---
 
-## Manual validation
-
-Before publishing, run the checklist:
-
-- `QA_CHECKLIST.md`
-
----
-
 ## Project
 
 Developed by **blacksamdev** — in tribute to Samuel Bellamy 🏴‍☠️,

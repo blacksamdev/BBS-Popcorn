@@ -149,14 +149,6 @@ Depuis l’icône `⚙` de l’application:
 
 ---
 
-## Validation manuelle
-
-Avant publication, exécuter la checklist:
-
-- `QA_CHECKLIST.md`
-
----
-
 ## Projet
 
 Développé par **blacksamdev** — en hommage à Samuel Bellamy 🏴‍☠️,
