@@ -1,5 +1,7 @@
 # BBS pOpcOrn 🍿
 
+🇬🇧 [English version](README.en.md)
+
 **YouTube via MPV**
 
 BBS pOpcOrn est un client YouTube Linux basé sur WebKitGTK.
@@ -17,6 +19,8 @@ L’objectif est de proposer une interface légère sans navigateur complet, en 
 - Résolution des flux via yt-dlp
 - Support des playlists et vidéos individuelles
 - Stockage des cookies via WebKitGTK (local uniquement)
+
+Pendant la lecture, fermez la fenêtre MPV pour revenir à la fenêtre YouTube.
 
 ---
 
@@ -127,8 +131,21 @@ WebKitGTK (interface YouTube)
 
 - Toutes les données restent locales
 - Cookies gérés par WebKitGTK
+- `cookies.sqlite` reste persistant pour conserver la session YouTube
+- `cookies.txt` est exporté temporairement pour MPV puis supprimé en fin de lecture
 - Aucune transmission à un service tiers
 - Aucun serveur backend
+
+---
+
+## Qualité et fenêtre MPV
+
+Depuis l’icône `⚙` de l’application:
+
+- Qualité max cible (2160 / 1440 / 1080 / 720 / 480)
+- Priorité de sélection (plus haute / plus basse)
+- Mode de lecture MPV (fenêtre / plein écran)
+- Taille fenêtre MPV (%), active uniquement en mode fenêtré
 
 ---
 
