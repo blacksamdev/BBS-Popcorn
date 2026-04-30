@@ -23,7 +23,6 @@ class MpvPlayer:
         self.win = win
         self.playback_profile = playback_profile
         self.quality_target = "1080"
-        self.quality_bias = "high"
         self.window_mode = "windowed"
         self.window_scale_percent = 80
 
@@ -72,12 +71,10 @@ class MpvPlayer:
     def update_playback_settings(
         self,
         quality_target: str,
-        quality_bias: str,
         window_mode: str,
         window_scale_percent: int
     ):
         self.quality_target = quality_target
-        self.quality_bias = quality_bias
         self.window_mode = window_mode
         self.window_scale_percent = window_scale_percent
 
@@ -177,7 +174,6 @@ class MpvPlayer:
             playback_profile=self.playback_profile,
             use_fallback_format=use_fallback_format,
             quality_target=self.quality_target,
-            quality_bias=self.quality_bias,
             window_mode=self.window_mode,
             window_scale_percent=self.window_scale_percent
         )

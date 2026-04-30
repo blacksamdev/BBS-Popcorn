@@ -24,7 +24,6 @@ class Updater:
         "gaming": [],
     }
     QUALITY_TARGETS = {"2160", "1440", "1080", "720", "480"}
-    QUALITY_BIASES = {"high", "low"}
 
     """
     Gestion des dépendances externes (mpv / yt-dlp)
@@ -84,7 +83,6 @@ class Updater:
         playback_profile: str = "gaming",
         use_fallback_format: bool = False,
         quality_target: str = "1080",
-        quality_bias: str = "high",
         window_mode: str = "windowed",
         window_scale_percent: int = 80
     ):
@@ -95,31 +93,18 @@ class Updater:
 
         if quality_target not in Updater.QUALITY_TARGETS:
             quality_target = "1080"
-        if quality_bias not in Updater.QUALITY_BIASES:
-            quality_bias = "high"
 
         if use_fallback_format:
-            if quality_bias == "low":
-                ytdl_format = (
-                    f"worstvideo[height<={quality_target}][vcodec^=avc1]+"
-                    f"worstaudio[acodec^=mp4a]/worst[height<={quality_target}]"
-                )
-            else:
-                ytdl_format = (
-                    f"bestvideo[height<={quality_target}][vcodec^=avc1]+"
-                    f"bestaudio[acodec^=mp4a]/best[height<={quality_target}]"
-                )
+            ytdl_format = (
+                f"bestvideo[height<={quality_target}][vcodec^=avc1]+"
+                f"bestaudio[acodec^=mp4a]/best[height<={quality_target}]"
+            )
         else:
-            if quality_bias == "low":
-                ytdl_format = (
-                    f"worstvideo[height<={quality_target}]+"
-                    f"worstaudio/worst[height<={quality_target}]"
-                )
-            else:
-                ytdl_format = (
-                    f"bestvideo[height<={quality_target}]+"
-                    f"bestaudio/best[height<={quality_target}]"
-                )
+            # Prefer AVC/H264 by default for smoother playback on more machines.
+            ytdl_format = (
+                f"bestvideo[height<={quality_target}][vcodec^=avc1]+"
+                f"bestaudio/best[height<={quality_target}]"
+            )
 
         profile_flags = Updater.PROFILE_FLAGS.get(playback_profile, Updater.PROFILE_FLAGS["gaming"])
         cmd = run_args + [
@@ -131,7 +116,7 @@ class Updater:
             "--gpu-api=opengl",
             "--force-window=yes",
             "--ontop=yes",
-            "--title=BBS pOpcOrn - ${media-title} -------> Fermez cette fenetre pour retourner sur youtube",
+            "--title=BBS pOpcOrn - ${media-title}",
             "--volume=100",
         ]
         cmd.extend(profile_flags)

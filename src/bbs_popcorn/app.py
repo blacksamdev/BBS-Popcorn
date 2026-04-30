@@ -31,7 +31,6 @@ def load_settings() -> dict:
         "theme": "auto",
         "playback_profile": "gaming",
         "quality_target": "1080",
-        "quality_bias": "high",
         "window_mode": "windowed",
         "window_scale_percent": 80,
     }
@@ -48,8 +47,6 @@ def load_settings() -> dict:
                     settings["playback_profile"] = "gaming"
                 if settings.get("quality_target") not in {"2160", "1440", "1080", "720", "480"}:
                     settings["quality_target"] = "1080"
-                if settings.get("quality_bias") not in {"high", "low"}:
-                    settings["quality_bias"] = "high"
                 if settings.get("window_mode") not in {"fullscreen", "windowed"}:
                     settings["window_mode"] = "windowed"
                 try:
@@ -434,6 +431,7 @@ class YtMpvApp(Gtk.Application):
         return False
 
     def _build_settings_popover(self):
+        self.pending_settings = dict(self.settings)
         popover = Gtk.Popover()
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_margin_top(8)
@@ -448,22 +446,10 @@ class YtMpvApp(Gtk.Application):
         self.quality_combo = Gtk.ComboBoxText()
         for q in ["2160", "1440", "1080", "720", "480"]:
             self.quality_combo.append_text(q)
-        self.quality_combo.set_active(["2160", "1440", "1080", "720", "480"].index(self.settings["quality_target"]))
+        self.quality_combo.set_active(["2160", "1440", "1080", "720", "480"].index(self.pending_settings["quality_target"]))
         self.quality_combo.connect("changed", self._on_settings_changed)
         quality_row.append(self.quality_combo)
         box.append(quality_row)
-
-        bias_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        bias_label = Gtk.Label(label="Priorite:")
-        bias_label.set_xalign(0)
-        bias_row.append(bias_label)
-        self.bias_combo = Gtk.ComboBoxText()
-        self.bias_combo.append("high", "Plus haute")
-        self.bias_combo.append("low", "Plus basse")
-        self.bias_combo.set_active_id(self.settings["quality_bias"])
-        self.bias_combo.connect("changed", self._on_settings_changed)
-        bias_row.append(self.bias_combo)
-        box.append(bias_row)
 
         mode_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         mode_label = Gtk.Label(label="Mode fenetre:")
@@ -472,17 +458,17 @@ class YtMpvApp(Gtk.Application):
         self.mode_combo = Gtk.ComboBoxText()
         self.mode_combo.append("windowed", "Fenetre")
         self.mode_combo.append("fullscreen", "Plein ecran")
-        self.mode_combo.set_active_id(self.settings["window_mode"])
+        self.mode_combo.set_active_id(self.pending_settings["window_mode"])
         self.mode_combo.connect("changed", self._on_settings_changed)
         mode_row.append(self.mode_combo)
         box.append(mode_row)
 
         scale_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.scale_label = Gtk.Label(label=f"Taille: {self.settings['window_scale_percent']}%")
+        self.scale_label = Gtk.Label(label=f"Taille: {self.pending_settings['window_scale_percent']}%")
         self.scale_label.set_xalign(0)
         scale_row.append(self.scale_label)
         self.scale_adjustment = Gtk.Adjustment(
-            value=float(self.settings["window_scale_percent"]),
+            value=float(self.pending_settings["window_scale_percent"]),
             lower=50.0,
             upper=100.0,
             step_increment=5.0,
@@ -510,38 +496,51 @@ class YtMpvApp(Gtk.Application):
         help_label.set_max_width_chars(36)
         box.append(help_label)
 
+        self.save_button = Gtk.Button(label="Save")
+        self.save_button.set_sensitive(False)
+        self.save_button.connect("clicked", self._on_save_clicked)
+        box.append(self.save_button)
+
         popover.set_child(box)
         self._sync_scale_sensitivity()
+        self._sync_save_button_state()
         return popover
 
     def _on_scale_changed(self, scale):
         value = int(scale.get_value())
         self.scale_label.set_text(f"Taille: {value}%")
-        self.settings["window_scale_percent"] = value
-        self._save_and_apply_settings()
+        self.pending_settings["window_scale_percent"] = value
+        self._sync_save_button_state()
 
     def _on_settings_changed(self, *_args):
-        self.settings["quality_target"] = self.quality_combo.get_active_text() or "1080"
-        self.settings["quality_bias"] = self.bias_combo.get_active_id() or "high"
-        self.settings["window_mode"] = self.mode_combo.get_active_id() or "windowed"
+        self.pending_settings["quality_target"] = self.quality_combo.get_active_text() or "1080"
+        self.pending_settings["window_mode"] = self.mode_combo.get_active_id() or "windowed"
         self._sync_scale_sensitivity()
-        self._save_and_apply_settings()
+        self._sync_save_button_state()
 
-    def _save_and_apply_settings(self):
+    def _on_save_clicked(self, _button):
+        self.settings.update(self.pending_settings)
         save_settings(self.settings)
         self._apply_player_settings()
+        self._sync_save_button_state()
 
     def _apply_player_settings(self):
         self.player.update_playback_settings(
             quality_target=self.settings.get("quality_target", "1080"),
-            quality_bias=self.settings.get("quality_bias", "high"),
             window_mode=self.settings.get("window_mode", "windowed"),
             window_scale_percent=int(self.settings.get("window_scale_percent", 80)),
         )
 
     def _sync_scale_sensitivity(self):
-        window_mode = self.settings.get("window_mode", "windowed")
+        window_mode = self.pending_settings.get("window_mode", "windowed")
         enabled = window_mode != "fullscreen"
         self.scale_slider.set_sensitive(enabled)
         self.scale_label.set_sensitive(enabled)
         self.scale_spin.set_sensitive(enabled)
+
+    def _sync_save_button_state(self):
+        has_changes = any(
+            self.settings.get(key) != self.pending_settings.get(key)
+            for key in ("quality_target", "window_mode", "window_scale_percent")
+        )
+        self.save_button.set_sensitive(has_changes)
