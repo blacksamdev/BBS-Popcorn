@@ -1,20 +1,39 @@
 import re
+import time
 import threading
+import os
 from gi.repository import GLib
 
 from bbs_popcorn.cookies import CookieExporter
+from bbs_popcorn.logging_utils import log_event
 from bbs_popcorn.updater import Updater
 
 
 class MpvPlayer:
 
-    def __init__(self, cookie_db_path: str, cookie_export_path: str, win):
+    def __init__(
+        self,
+        cookie_db_path: str,
+        cookie_export_path: str,
+        win,
+        playback_profile: str = "gaming"
+    ):
         self.cookie_db_path = cookie_db_path
         self.cookie_export_path = cookie_export_path
         self.win = win
+        self.playback_profile = playback_profile
+        self.quality_target = "1080"
+        self.quality_bias = "high"
+        self.window_mode = "windowed"
+        self.window_scale_percent = 80
 
         self.on_show_loading = None
         self.on_hide_loading = None
+        self.on_show_notice = None
+        self.on_status_change = None
+        self.min_loader_seconds = 1.8
+        self._play_lock = threading.Lock()
+        self._is_playing = False
 
     # ─────────────────────────────
     # cookies (optional)
@@ -41,22 +60,85 @@ class MpvPlayer:
     # ─────────────────────────────
 
     def play(self, url: str):
+        with self._play_lock:
+            if self._is_playing:
+                print("[BBS Popcorn] MPV already running, ignoring click.")
+                self._status("Lecture deja en cours.")
+                return
+            self._is_playing = True
+        self._status("Preparation de la lecture...")
         threading.Thread(target=self._launch, args=(url,), daemon=True).start()
+
+    def update_playback_settings(
+        self,
+        quality_target: str,
+        quality_bias: str,
+        window_mode: str,
+        window_scale_percent: int
+    ):
+        self.quality_target = quality_target
+        self.quality_bias = quality_bias
+        self.window_mode = window_mode
+        self.window_scale_percent = window_scale_percent
 
     # ─────────────────────────────
     # launch mpv
     # ─────────────────────────────
 
     def _launch(self, url: str):
-        GLib.idle_add(self._show_loading)
+        cookies_path = None
+        try:
+            start_time = time.monotonic()
+            GLib.idle_add(self._show_loading)
 
-        url = self._prepare_url(url)
+            url = self._prepare_url(url)
+            cookies_path = self.get_cookies()
+            if not cookies_path:
+                print("[BBS Popcorn] Cookie export failed, aborting MPV launch.")
+                GLib.idle_add(self._hide_loading_only)
+                return
 
-        GLib.idle_add(self._hide_for_mpv)
+            process = self._start_process(url, cookies_path, use_fallback_format=False)
+            elapsed = time.monotonic() - start_time
+            remaining = self.min_loader_seconds - elapsed
+            if remaining > 0:
+                time.sleep(remaining)
 
-        Updater.play(url)
+            if process.poll() is not None:
+                if self._retry_with_fallback(url, cookies_path):
+                    return
+                print(f"[BBS Popcorn] MPV exited early with code {process.returncode}.")
+                log_event(f"mpv exited early code={process.returncode} url={url}")
+                self._status("Impossible de lancer la lecture.")
+                notice = Updater.get_upcoming_live_message(url)
+                if notice and self.on_show_notice:
+                    GLib.idle_add(self.on_show_notice, notice)
+                else:
+                    GLib.idle_add(self._hide_loading_only)
+                return
 
-        GLib.idle_add(self._show_after_mpv)
+            self._status("Lecture en cours.")
+            GLib.idle_add(self._hide_for_mpv)
+            return_code = process.wait()
+            if return_code != 0:
+                print(f"[BBS Popcorn] MPV exited with code {return_code}.")
+                log_event(f"mpv exited code={return_code} url={url}")
+                self._status("Lecture terminee avec avertissement.")
+                notice = Updater.get_upcoming_live_message(url)
+                if notice and self.on_show_notice:
+                    GLib.idle_add(self.on_show_notice, notice)
+            else:
+                self._status("Lecture terminee.")
+            GLib.idle_add(self._show_after_mpv)
+        except Exception as exc:
+            print(f"[BBS Popcorn] MPV launch error: {exc}")
+            log_event(f"mpv launch error: {exc}")
+            self._status("Erreur de lancement video.")
+            GLib.idle_add(self._hide_loading_only)
+        finally:
+            self._cleanup_exported_cookies(cookies_path)
+            with self._play_lock:
+                self._is_playing = False
 
     # ─────────────────────────────
     # UI
@@ -73,7 +155,59 @@ class MpvPlayer:
         self.win.set_visible(False)
         return False
 
+    def _hide_loading_only(self):
+        if self.on_hide_loading:
+            self.on_hide_loading()
+        return False
+
     def _show_after_mpv(self):
         self.win.set_visible(True)
         self.win.present()
         return False
+
+    def _status(self, text: str):
+        if self.on_status_change:
+            GLib.idle_add(self.on_status_change, text)
+        log_event(text)
+
+    def _start_process(self, url: str, cookies_path: str, use_fallback_format: bool):
+        return Updater.start_play(
+            url,
+            cookies_path=cookies_path,
+            playback_profile=self.playback_profile,
+            use_fallback_format=use_fallback_format,
+            quality_target=self.quality_target,
+            quality_bias=self.quality_bias,
+            window_mode=self.window_mode,
+            window_scale_percent=self.window_scale_percent
+        )
+
+    def _retry_with_fallback(self, url: str, cookies_path: str) -> bool:
+        self._status("Format compatible: nouvelle tentative...")
+        process = self._start_process(url, cookies_path, use_fallback_format=True)
+        time.sleep(0.5)
+        if process.poll() is not None:
+            return False
+        self._status("Lecture en cours (mode compatible).")
+        GLib.idle_add(self._hide_for_mpv)
+        return_code = process.wait()
+        if return_code != 0:
+            log_event(f"mpv fallback exited code={return_code} url={url}")
+            self._status("Lecture terminee avec avertissement.")
+        else:
+            self._status("Lecture terminee.")
+        GLib.idle_add(self._show_after_mpv)
+        return True
+
+    def _cleanup_exported_cookies(self, cookies_path: str):
+        if not cookies_path:
+            return
+        if cookies_path != self.cookie_export_path:
+            return
+        if not os.path.exists(cookies_path):
+            return
+        try:
+            os.remove(cookies_path)
+            log_event("cookies.txt supprime apres lecture MPV.")
+        except OSError as exc:
+            log_event(f"echec suppression cookies.txt: {exc}")

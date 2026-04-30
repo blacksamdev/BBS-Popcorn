@@ -1,8 +1,31 @@
 import shutil
 import subprocess
+import json
+import time
 
 
 class Updater:
+    YTDL_FORMATS = {
+        "quality": "bestvideo+bestaudio/best",
+        "gaming": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+    }
+    YTDL_FALLBACK_FORMATS = {
+        "quality": (
+            "bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/"
+            "best[vcodec^=avc1]/best"
+        ),
+        "gaming": (
+            "bestvideo[height<=1080][vcodec^=avc1]+bestaudio[acodec^=mp4a]/"
+            "best[height<=1080][vcodec^=avc1]/best[height<=1080]"
+        ),
+    }
+    PROFILE_FLAGS = {
+        "quality": [],
+        "gaming": [],
+    }
+    QUALITY_TARGETS = {"2160", "1440", "1080", "720", "480"}
+    QUALITY_BIASES = {"high", "low"}
+
     """
     Gestion des dépendances externes (mpv / yt-dlp)
     Compatible Flatpak (host fallback via flatpak-spawn).
@@ -16,8 +39,18 @@ class Updater:
         return shutil.which(name) is not None
 
     @staticmethod
-    def run_host(args: list):
+    def run_host(args: list, quiet: bool = False):
+        if quiet:
+            return subprocess.run(
+                ["flatpak-spawn", "--host"] + args,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
         return subprocess.run(["flatpak-spawn", "--host"] + args)
+
+    @staticmethod
+    def popen_host(args: list):
+        return subprocess.Popen(["flatpak-spawn", "--host"] + args)
 
     # ----------------------------
     # MPV
@@ -26,26 +59,92 @@ class Updater:
     def mpv_available() -> bool:
         # Popcorn targets MPV from Flathub (host side).
         cmd = ["flatpak", "info", "io.mpv.Mpv"]
-        result = Updater.run_host(cmd)
+        result = Updater.run_host(cmd, quiet=True)
         return result.returncode == 0
 
     @staticmethod
-    def play(url: str):
-        return Updater.run_host(
-            [
-                "flatpak",
-                "run",
-                "io.mpv.Mpv",
-                "--ytdl-format=bestvideo+bestaudio/best",
-                "--hwdec=auto-safe",
-                "--vo=gpu",
-                "--gpu-api=opengl",
-                "--force-window=yes",
-                "--ontop=yes",
-                "--volume=100",
-                url,
-            ]
+    def play(
+        url: str,
+        cookies_path: str = None,
+        playback_profile: str = "gaming",
+        use_fallback_format: bool = False
+    ):
+        process = Updater.start_play(
+            url,
+            cookies_path=cookies_path,
+            playback_profile=playback_profile,
+            use_fallback_format=use_fallback_format
         )
+        return process.wait()
+
+    @staticmethod
+    def start_play(
+        url: str,
+        cookies_path: str = None,
+        playback_profile: str = "gaming",
+        use_fallback_format: bool = False,
+        quality_target: str = "1080",
+        quality_bias: str = "high",
+        window_mode: str = "windowed",
+        window_scale_percent: int = 80
+    ):
+        run_args = ["flatpak", "run"]
+        if cookies_path:
+            # Allow MPV Flatpak to read exported cookies from this app data path.
+            run_args.append(f"--filesystem={cookies_path}:ro")
+
+        if quality_target not in Updater.QUALITY_TARGETS:
+            quality_target = "1080"
+        if quality_bias not in Updater.QUALITY_BIASES:
+            quality_bias = "high"
+
+        if use_fallback_format:
+            if quality_bias == "low":
+                ytdl_format = (
+                    f"worstvideo[height<={quality_target}][vcodec^=avc1]+"
+                    f"worstaudio[acodec^=mp4a]/worst[height<={quality_target}]"
+                )
+            else:
+                ytdl_format = (
+                    f"bestvideo[height<={quality_target}][vcodec^=avc1]+"
+                    f"bestaudio[acodec^=mp4a]/best[height<={quality_target}]"
+                )
+        else:
+            if quality_bias == "low":
+                ytdl_format = (
+                    f"worstvideo[height<={quality_target}]+"
+                    f"worstaudio/worst[height<={quality_target}]"
+                )
+            else:
+                ytdl_format = (
+                    f"bestvideo[height<={quality_target}]+"
+                    f"bestaudio/best[height<={quality_target}]"
+                )
+
+        profile_flags = Updater.PROFILE_FLAGS.get(playback_profile, Updater.PROFILE_FLAGS["gaming"])
+        cmd = run_args + [
+            "io.mpv.Mpv",
+            f"--ytdl-format={ytdl_format}",
+            "--cookies",
+            "--hwdec=auto-safe",
+            "--vo=gpu",
+            "--gpu-api=opengl",
+            "--force-window=yes",
+            "--ontop=yes",
+            "--title=BBS pOpcOrn - ${media-title} -------> Fermez cette fenetre pour retourner sur youtube",
+            "--volume=100",
+        ]
+        cmd.extend(profile_flags)
+        if window_mode == "fullscreen":
+            cmd.append("--fullscreen=yes")
+        else:
+            cmd.append("--fullscreen=no")
+            scale = max(50, min(100, int(window_scale_percent))) / 100.0
+            cmd.append(f"--window-scale={scale:.2f}")
+        if cookies_path:
+            cmd.append(f"--cookies-file={cookies_path}")
+        cmd.append(url)
+        return Updater.popen_host(cmd)
 
     # ----------------------------
     # YT-DLP
@@ -68,6 +167,40 @@ class Updater:
             "mpv": Updater.mpv_available(),
             "yt-dlp": Updater.ytdlp_available()
         }
+
+    @staticmethod
+    def get_upcoming_live_message(url: str):
+        if not Updater.ytdlp_available():
+            return None
+
+        try:
+            result = subprocess.run(
+                ["yt-dlp", "--skip-download", "--dump-single-json", url],
+                capture_output=True,
+                text=True,
+                timeout=12
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return None
+
+            info = json.loads(result.stdout)
+            if info.get("live_status") not in {"is_upcoming", "post_live"}:
+                return None
+
+            timestamp = (
+                info.get("release_timestamp")
+                or info.get("start_time")
+                or info.get("timestamp")
+            )
+            if isinstance(timestamp, (int, float)):
+                remaining = int(timestamp - time.time())
+                if remaining > 0:
+                    minutes = max(1, round(remaining / 60))
+                    return f"Live prevu dans environ {minutes} min."
+
+            return "Ce live n'a pas encore commence."
+        except Exception:
+            return None
 
 
 class HostUpdater:
