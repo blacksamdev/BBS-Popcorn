@@ -1,0 +1,94 @@
+import shutil
+import subprocess
+
+
+class Updater:
+    """
+    Gestion des dépendances externes (mpv / yt-dlp)
+    Compatible Flatpak (host fallback via flatpak-spawn).
+    """
+
+    # ----------------------------
+    # Utils
+    # ----------------------------
+    @staticmethod
+    def has_binary(name: str) -> bool:
+        return shutil.which(name) is not None
+
+    @staticmethod
+    def run_host(args: list):
+        return subprocess.run(["flatpak-spawn", "--host"] + args)
+
+    # ----------------------------
+    # MPV
+    # ----------------------------
+    @staticmethod
+    def mpv_available() -> bool:
+        # Popcorn targets MPV from Flathub (host side).
+        cmd = ["flatpak", "info", "io.mpv.Mpv"]
+        result = Updater.run_host(cmd)
+        return result.returncode == 0
+
+    @staticmethod
+    def play(url: str):
+        return Updater.run_host(
+            [
+                "flatpak",
+                "run",
+                "io.mpv.Mpv",
+                "--ytdl-format=bestvideo+bestaudio/best",
+                "--hwdec=auto-safe",
+                "--vo=gpu",
+                "--gpu-api=opengl",
+                "--force-window=yes",
+                "--ontop=yes",
+                "--volume=100",
+                url,
+            ]
+        )
+
+    # ----------------------------
+    # YT-DLP
+    # ----------------------------
+    @staticmethod
+    def ytdlp_available() -> bool:
+        return Updater.has_binary("yt-dlp")
+
+    @staticmethod
+    def download(url: str):
+        # yt-dlp is expected inside this Flatpak runtime.
+        return subprocess.run(["yt-dlp", url])
+
+    # ----------------------------
+    # Diagnostic
+    # ----------------------------
+    @staticmethod
+    def status():
+        return {
+            "mpv": Updater.mpv_available(),
+            "yt-dlp": Updater.ytdlp_available()
+        }
+
+
+class HostUpdater:
+    """
+    Minimal compatibility shim for existing app hook.
+    """
+
+    def __init__(self, on_done=None):
+        self.on_done = on_done
+
+    def check_and_update(self):
+        status = Updater.status()
+        issues = []
+
+        if not status["mpv"]:
+            issues.append("MPV Flatpak manquant: flatpak install flathub io.mpv.Mpv")
+        if not status["yt-dlp"]:
+            issues.append("yt-dlp introuvable dans l'application")
+
+        if self.on_done:
+            if issues:
+                self.on_done(" | ".join(issues))
+            else:
+                self.on_done("Dépendances OK")

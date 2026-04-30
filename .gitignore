@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*$py.class
+.Python
+
+# Python packaging / build
+build/
+dist/
+site/
+*.egg-info/
+*.egg
+.eggs/
+pip-wheel-metadata/
+
+# Python tools caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Environnements
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# Flatpak build
+.flatpak-builder/
+build-dir/
+state/
+tmp/
+repo/
+*.flatpak
+*.flatpakref
+
+# Base de données / fichiers temporaires
+*.sqlite
+*.sqlite3
+*.log
+*.tmp
+
+# IDE / Cursor / VSCode
+.cursor/
+.cursorignore
+.cursorindexingignore
+.vscode/
+.idea/
+
+# OS
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

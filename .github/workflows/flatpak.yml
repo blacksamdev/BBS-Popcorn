@@ -1,0 +1,189 @@
+name: Flatpak Build & Deploy
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  APP_ID: io.github.blacksamdev.Popcorn
+  REPO_TITLE: BBS pOpcOrn
+  REPO_URL: https://blacksamdev.github.io/BBS-Popcorn/
+  REPO_HOMEPAGE: https://github.com/blacksamdev/BBS-Popcorn
+  REPO_DESCRIPTION: BBS pOpcOrn - Client YouTube via MPV
+  REPO_ICON: https://raw.githubusercontent.com/blacksamdev/BBS-Popcorn/main/data/io.github.blacksamdev.Popcorn.svg
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder gnupg rsync
+
+      - name: Setup Flathub
+        run: |
+          set -e
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Install SDK
+        run: |
+          set -e
+          flatpak install --user -y flathub org.gnome.Sdk//49
+          flatpak install --user -y flathub org.gnome.Platform//49
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GPG_PRIVATE_KEY:-}" ]; then
+            echo "ERROR: secret GPG_PRIVATE_KEY is empty or missing"
+            exit 1
+          fi
+
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          printf 'pinentry-mode loopback\n' > ~/.gnupg/gpg.conf
+          printf 'allow-loopback-pinentry\n' > ~/.gnupg/gpg-agent.conf
+
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --pinentry-mode loopback --import
+
+          KEYID=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
+
+          if [ -z "$KEYID" ]; then
+            echo "ERROR: KEYID not found"
+            exit 1
+          fi
+
+          gpg --batch --yes --list-secret-keys "$KEYID" >/dev/null || {
+            echo "ERROR: imported secret key cannot be listed"
+            exit 1
+          }
+
+          echo "$KEYID" > KEYID.txt
+          gpg --armor --export "$KEYID" > repo-signing.key
+
+      - name: Build Flatpak
+        run: |
+          set -euo pipefail
+          KEYID=$(cat KEYID.txt)
+          flatpak-builder \
+            --repo=repo \
+            --gpg-sign="$KEYID" \
+            --force-clean \
+            build-dir \
+            io.github.blacksamdev.Popcorn.json
+
+      - name: Sign repo
+        run: |
+          set -euo pipefail
+
+          KEYID=$(cat KEYID.txt)
+          echo "Signing repo with KEYID: $KEYID"
+          test -d repo || (echo "ERROR: repo missing before signing" && exit 1)
+          test -f repo/summary || (echo "ERROR: repo/summary missing before signing" && exit 1)
+
+          gpg --batch --yes --list-secret-keys "$KEYID" >/dev/null || {
+            echo "ERROR: secret key unavailable at signing step"
+            exit 1
+          }
+
+          flatpak build-update-repo repo \
+            --generate-static-deltas \
+            --gpg-sign="$KEYID"
+
+          echo "=== verify signature files ==="
+          ls -l repo | grep summary
+          test -f repo/summary.sig || (echo "ERROR: summary.sig missing after signing" && exit 1)
+
+      - name: Generate flatpakrepo descriptor
+        run: |
+          set -euo pipefail
+          KEYID=$(cat KEYID.txt)
+          GPG_KEY_BASE64=$(gpg --batch --yes --export "$KEYID" | base64 -w0)
+          cat > bbs-popcorn.flatpakrepo <<EOF
+          [Flatpak Repo]
+          Title=${REPO_TITLE}
+          Url=${REPO_URL}
+          Homepage=${REPO_HOMEPAGE}
+          Description=${REPO_DESCRIPTION}
+          Icon=${REPO_ICON}
+          GPGKey=${GPG_KEY_BASE64}
+          EOF
+
+      - name: Export repo safely
+        run: |
+          set -e
+          echo "=== repo check ==="
+          ls -R repo
+          test -d repo || (echo "repo missing" && exit 1)
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: flatpak-repo
+          path: |
+            repo
+            repo-signing.key
+            bbs-popcorn.flatpakrepo
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+
+      - name: Download artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: flatpak-repo
+          path: repo_bundle
+
+      - name: Debug downloaded content
+        run: |
+          set -e
+          echo "=== downloaded ==="
+          ls -R repo_bundle
+
+      - name: Prepare pages folder
+        run: |
+          set -e
+          rm -rf pages
+          mkdir -p pages
+          touch pages/.nojekyll
+
+      - name: Copy repo content
+        run: |
+          set -e
+          if [ ! -d "repo_bundle/repo" ]; then
+            echo "ERROR: repo missing in artifact"
+            exit 1
+          fi
+
+          cp -r repo_bundle/repo/* pages/
+          cp repo_bundle/repo-signing.key pages/ || true
+          cp repo_bundle/bbs-popcorn.flatpakrepo pages/ || true
+
+      - name: Commit and push GitHub Pages
+        run: |
+          set -e
+          cd pages
+          git init
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git checkout -b gh-pages
+          git add .
+          git commit -m "Update Flatpak repo"
+          git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages

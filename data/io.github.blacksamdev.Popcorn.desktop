@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=BBS pOpcOrn
+Comment=Client YouTube basé sur MPV
+Exec=bbs-popcorn
+Icon=io.github.blacksamdev.Popcorn
+Type=Application
+Categories=AudioVideo;Video;Player;Network;
+Terminal=false
+StartupNotify=true
+X-Flatpak=io.github.blacksamdev.Popcorn

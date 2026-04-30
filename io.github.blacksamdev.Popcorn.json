@@ -1,0 +1,58 @@
+{
+  "app-id": "io.github.blacksamdev.Popcorn",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "49",
+  "sdk": "org.gnome.Sdk",
+  "command": "bbs-popcorn",
+  "finish-args": [
+    "--share=network",
+    "--share=ipc",
+    "--socket=wayland",
+    "--socket=fallback-x11",
+    "--socket=pulseaudio",
+    "--device=dri",
+    "--filesystem=xdg-config/bbs-popcorn:create",
+    "--talk-name=org.freedesktop.Flatpak",
+    "--talk-name=org.freedesktop.secrets"
+  ],
+
+  "modules": [
+    {
+      "name": "yt-dlp",
+      "buildsystem": "simple",
+      "build-commands": [
+        "install -Dm755 yt-dlp.sh /app/bin/yt-dlp"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/yt-dlp/yt-dlp.git",
+          "branch": "master"
+        }
+      ]
+    },
+    {
+      "name": "popcorn",
+      "buildsystem": "simple",
+      "build-commands": [
+        "install -Dm755 wrapper.sh /app/bin/bbs-popcorn",
+        "mkdir -p /app/lib/bbs-popcorn/bbs_popcorn",
+        "install -Dm644 src/bbs_popcorn/__init__.py /app/lib/bbs-popcorn/bbs_popcorn/__init__.py",
+        "install -Dm644 src/bbs_popcorn/main.py /app/lib/bbs-popcorn/bbs_popcorn/main.py",
+        "install -Dm644 src/bbs_popcorn/app.py /app/lib/bbs-popcorn/bbs_popcorn/app.py",
+        "install -Dm644 src/bbs_popcorn/player.py /app/lib/bbs-popcorn/bbs_popcorn/player.py",
+        "install -Dm644 src/bbs_popcorn/updater.py /app/lib/bbs-popcorn/bbs_popcorn/updater.py",
+        "install -Dm644 src/bbs_popcorn/cookies.py /app/lib/bbs-popcorn/bbs_popcorn/cookies.py",
+        "install -Dm644 src/bbs_popcorn/logging_utils.py /app/lib/bbs-popcorn/bbs_popcorn/logging_utils.py",
+        "install -Dm644 data/io.github.blacksamdev.Popcorn.desktop /app/share/applications/io.github.blacksamdev.Popcorn.desktop",
+        "install -Dm644 data/io.github.blacksamdev.Popcorn.svg /app/share/icons/hicolor/scalable/apps/io.github.blacksamdev.Popcorn.svg"
+      ],
+      "sources": [
+        {
+          "type": "dir",
+          "path": "."
+        }
+      ]
+    }
+  ]
+}
