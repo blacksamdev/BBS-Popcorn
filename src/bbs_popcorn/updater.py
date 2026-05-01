@@ -95,7 +95,8 @@ class Updater:
             # Allow MPV Flatpak to read exported cookies from this app data path.
             run_args.append(f"--filesystem={cookies_path}:ro")
         if sponsorblock_enabled and sponsorblock_script_path:
-            run_args.append(f"--filesystem={sponsorblock_script_path}:ro")
+            script_dir = os.path.dirname(sponsorblock_script_path)
+            run_args.append(f"--filesystem={script_dir}:ro")
 
         if quality_target not in Updater.QUALITY_TARGETS:
             quality_target = "1080"
@@ -166,7 +167,8 @@ class Updater:
         if cookies_path:
             run_args.append(f"--filesystem={cookies_path}:ro")
         if sponsorblock_enabled and sponsorblock_script_path:
-            run_args.append(f"--filesystem={sponsorblock_script_path}:ro")
+            script_dir = os.path.dirname(sponsorblock_script_path)
+            run_args.append(f"--filesystem={script_dir}:ro")
 
         cmd = run_args + [
             "io.mpv.Mpv",

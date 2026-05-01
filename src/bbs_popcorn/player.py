@@ -168,7 +168,10 @@ class MpvPlayer:
     def _prepare_url(self, url: str) -> str:
         match = re.search(r"[?&]list=([a-zA-Z0-9_-]+)", url)
         if match:
-            return f"https://www.youtube.com/playlist?list={match.group(1)}"
+            playlist_id = match.group(1)
+            # Ignorer les mixes/radios YouTube (RD, RDMM, RDCLAK...) — non lisibles par yt-dlp
+            if not playlist_id.startswith("RD"):
+                return f"https://www.youtube.com/playlist?list={playlist_id}"
         return url
 
     # ─────────────────────────────

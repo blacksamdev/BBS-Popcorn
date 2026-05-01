@@ -284,7 +284,10 @@ class YtMpvApp(Gtk.Application):
     def on_decide_policy(self, webview, decision, decision_type):
         if decision_type != WebKit.PolicyDecisionType.NAVIGATION_ACTION:
             return False
-        request = decision.get_request()
+        action = decision.get_navigation_action()
+        if not action:
+            return False
+        request = action.get_request()
         if not request:
             return False
         uri = request.get_uri() or ""
