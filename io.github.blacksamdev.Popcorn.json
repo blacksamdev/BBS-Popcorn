@@ -16,7 +16,6 @@
     "--talk-name=org.freedesktop.Flatpak",
     "--talk-name=org.freedesktop.secrets"
   ],
-
   "modules": [
     {
       "name": "yt-dlp",
@@ -29,6 +28,20 @@
           "type": "git",
           "url": "https://github.com/yt-dlp/yt-dlp.git",
           "branch": "master"
+        }
+      ]
+    },
+    {
+      "name": "sponsorblock-script",
+      "buildsystem": "simple",
+      "build-commands": [
+        "install -Dm644 sponsorblock.lua /app/share/bbs-popcorn/sponsorblock.lua"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/po5/mpv_sponsorblock.git",
+          "commit": "8504097f07894a7e93737b6058e0a816694e9f73"
         }
       ]
     },
@@ -47,18 +60,12 @@
         "install -Dm644 src/bbs_popcorn/logging_utils.py /app/lib/bbs-popcorn/bbs_popcorn/logging_utils.py",
         "install -Dm644 src/bbs_popcorn/resume_store.py /app/lib/bbs-popcorn/bbs_popcorn/resume_store.py",
         "install -Dm644 data/io.github.blacksamdev.Popcorn.desktop /app/share/applications/io.github.blacksamdev.Popcorn.desktop",
-        "install -Dm644 data/io.github.blacksamdev.Popcorn.svg /app/share/icons/hicolor/scalable/apps/io.github.blacksamdev.Popcorn.svg",
-        "install -Dm644 sponsorblock.lua /app/share/bbs-popcorn/sponsorblock.lua"
+        "install -Dm644 data/io.github.blacksamdev.Popcorn.svg /app/share/icons/hicolor/scalable/apps/io.github.blacksamdev.Popcorn.svg"
       ],
       "sources": [
         {
           "type": "dir",
           "path": "."
-        },
-        {
-          "type": "file",
-          "url": "https://raw.githubusercontent.com/po5/mpv_sponsorblock/master/sponsorblock.lua",
-          "sha256": "17f5e624c5b41a357da654bd37fb92e563f40021809cf35d81730bb10011980e"
         }
       ]
     }
