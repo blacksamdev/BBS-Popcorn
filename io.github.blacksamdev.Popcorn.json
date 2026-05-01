@@ -40,9 +40,8 @@
       "sources": [
         {
           "type": "file",
-          "url": "https://raw.githubusercontent.com/po5/mpv_sponsorblock/8504097f07894a7e93737b6058e0a816694e9f73/sponsorblock.lua",
-          "sha256": "2926efc61866ff784cfd6c5753eb4d88382d395f0af8062aea834eb772589ba4",
-          "dest-filename": "sponsorblock.lua"
+          "url": "https://raw.githubusercontent.com/po5/mpv_sponsorblock/master/sponsorblock.lua",
+          "sha256": "2926efc61866ff784cfd6c5753eb4d88382d395f0af8062aea834eb772589ba4"
         }
       ]
     },
