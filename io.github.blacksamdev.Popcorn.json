@@ -12,6 +12,7 @@
     "--socket=pulseaudio",
     "--device=dri",
     "--filesystem=xdg-config/bbs-popcorn:create",
+    "--filesystem=xdg-config/mpv:create",
     "--talk-name=org.freedesktop.Flatpak",
     "--talk-name=org.freedesktop.secrets"
   ],
