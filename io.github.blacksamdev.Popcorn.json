@@ -13,6 +13,7 @@
     "--device=dri",
     "--filesystem=xdg-config/bbs-popcorn:create",
     "--filesystem=xdg-config/mpv:create",
+    "--filesystem=~/.var/app/io.mpv.Mpv/config/mpv/scripts:create",
     "--talk-name=org.freedesktop.Flatpak",
     "--talk-name=org.freedesktop.secrets"
   ],
@@ -35,25 +36,13 @@
       "name": "sponsorblock-script",
       "buildsystem": "simple",
       "build-commands": [
-        "install -Dm644 sponsorblock.lua /app/share/bbs-popcorn/sponsorblock.lua",
-        "install -Dm644 main.lua /app/share/bbs-popcorn/sponsorblock_shared/main.lua",
-        "install -Dm644 sponsorblock.py /app/share/bbs-popcorn/sponsorblock_shared/sponsorblock.py"
+        "install -Dm644 sponsorblock.lua /app/share/bbs-popcorn/sponsorblock.lua"
       ],
       "sources": [
         {
           "type": "file",
           "url": "https://raw.githubusercontent.com/po5/mpv_sponsorblock/master/sponsorblock.lua",
           "sha256": "2926efc61866ff784cfd6c5753eb4d88382d395f0af8062aea834eb772589ba4"
-        },
-        {
-          "type": "file",
-          "url": "https://raw.githubusercontent.com/po5/mpv_sponsorblock/master/sponsorblock_shared/main.lua",
-          "sha256": "d00c0438ab63c106807802628e51f0a41859c1173dc88350a4efd5e3892bf7f6"
-        },
-        {
-          "type": "file",
-          "url": "https://raw.githubusercontent.com/po5/mpv_sponsorblock/master/sponsorblock_shared/sponsorblock.py",
-          "sha256": "bb050852a857e11f6ca4efeb84748e431711fd90fc118f081db1ee54b5f4f263"
         }
       ]
     },

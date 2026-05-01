@@ -12,6 +12,12 @@ from bbs_popcorn.resume_store import ResumeStore
 from bbs_popcorn.updater import Updater
 
 _MPV_IPC_SOCKET = "/tmp/bbs-popcorn-mpv.sock"
+_MPV_SCRIPTS_DIR = os.path.expanduser("~/.var/app/io.mpv.Mpv/config/mpv/scripts")
+_SB_FILES = {
+    "sponsorblock.lua": None,  # sera rempli depuis sponsorblock_script_path
+    os.path.join("sponsorblock_shared", "main.lua"): None,
+    os.path.join("sponsorblock_shared", "sponsorblock.py"): None,
+}
 
 
 class MpvPlayer:
@@ -92,8 +98,6 @@ class MpvPlayer:
             quality_target=self.quality_target,
             window_mode=self.window_mode,
             window_scale_percent=self.window_scale_percent,
-            sponsorblock_enabled=self.sponsorblock_enabled,
-            sponsorblock_script_path=self.sponsorblock_script_path,
         )
         # Wait for MPV to create the IPC socket (typically < 1 s).
         deadline = time.monotonic() + 4.0
@@ -199,8 +203,43 @@ class MpvPlayer:
         self.window_mode = window_mode
         self.window_scale_percent = window_scale_percent
         self.sponsorblock_enabled = sponsorblock_enabled
+        self._sync_sponsorblock()
         if not self._is_playing:
             self.prewarm_mpv()
+
+    def _sync_sponsorblock(self):
+        """Installe ou supprime les fichiers SponsorBlock dans le dossier scripts de MPV."""
+        if not self.sponsorblock_script_path:
+            return
+        src_dir = os.path.dirname(self.sponsorblock_script_path)
+
+        if self.sponsorblock_enabled:
+            try:
+                os.makedirs(_MPV_SCRIPTS_DIR, exist_ok=True)
+                shared_dst = os.path.join(_MPV_SCRIPTS_DIR, "sponsorblock_shared")
+                os.makedirs(shared_dst, exist_ok=True)
+                import shutil
+                shutil.copy2(self.sponsorblock_script_path,
+                             os.path.join(_MPV_SCRIPTS_DIR, "sponsorblock.lua"))
+                src_shared = os.path.join(src_dir, "sponsorblock_shared")
+                for fname in ("main.lua", "sponsorblock.py"):
+                    shutil.copy2(os.path.join(src_shared, fname),
+                                 os.path.join(shared_dst, fname))
+                log_event("SponsorBlock: fichiers installes dans scripts MPV.", level="debug")
+            except Exception as exc:
+                log_event(f"SponsorBlock: echec installation: {exc}", level="debug")
+        else:
+            try:
+                lua = os.path.join(_MPV_SCRIPTS_DIR, "sponsorblock.lua")
+                shared = os.path.join(_MPV_SCRIPTS_DIR, "sponsorblock_shared")
+                if os.path.exists(lua):
+                    os.remove(lua)
+                if os.path.isdir(shared):
+                    import shutil
+                    shutil.rmtree(shared)
+                log_event("SponsorBlock: fichiers supprimes des scripts MPV.", level="debug")
+            except Exception as exc:
+                log_event(f"SponsorBlock: echec suppression: {exc}", level="debug")
 
     # ─────────────────────────────
     # launch mpv
@@ -332,8 +371,6 @@ class MpvPlayer:
             window_scale_percent=self.window_scale_percent,
             start_pos=start_pos,
             ipc_socket_path=ipc_socket_path,
-            sponsorblock_enabled=self.sponsorblock_enabled,
-            sponsorblock_script_path=self.sponsorblock_script_path,
         )
 
     def _retry_with_fallback(self, url: str, cookies_path: str) -> bool:

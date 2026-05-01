@@ -88,16 +88,11 @@ class Updater:
         window_scale_percent: int = 80,
         start_pos: float = None,
         ipc_socket_path: str = None,
-        sponsorblock_enabled: bool = False,
-        sponsorblock_script_path: str = None,
     ):
         run_args = ["flatpak", "run"]
         if cookies_path:
             # Allow MPV Flatpak to read exported cookies from this app data path.
             run_args.append(f"--filesystem={cookies_path}:ro")
-        if sponsorblock_enabled and sponsorblock_script_path:
-            script_dir = os.path.dirname(sponsorblock_script_path)
-            run_args.append(f"--filesystem={script_dir}:ro")
 
         if quality_target not in Updater.QUALITY_TARGETS:
             quality_target = "1080"
@@ -140,8 +135,6 @@ class Updater:
             cmd.append(f"--start={start_pos:.1f}")
         if ipc_socket_path:
             cmd.append(f"--input-ipc-server={ipc_socket_path}")
-        if sponsorblock_enabled and sponsorblock_script_path:
-            cmd.append(f"--script={sponsorblock_script_path}")
         cmd.append(url)
         return Updater.popen_host(cmd)
 
@@ -152,8 +145,6 @@ class Updater:
         quality_target: str = "1080",
         window_mode: str = "windowed",
         window_scale_percent: int = 80,
-        sponsorblock_enabled: bool = False,
-        sponsorblock_script_path: str = None,
     ):
         """Launch MPV in idle mode with an IPC socket for pre-warming."""
         if quality_target not in Updater.QUALITY_TARGETS:
@@ -167,9 +158,6 @@ class Updater:
         run_args = ["flatpak", "run"]
         if cookies_path:
             run_args.append(f"--filesystem={cookies_path}:ro")
-        if sponsorblock_enabled and sponsorblock_script_path:
-            script_dir = os.path.dirname(sponsorblock_script_path)
-            run_args.append(f"--filesystem={script_dir}:ro")
 
         cmd = run_args + [
             "io.mpv.Mpv",
@@ -193,16 +181,12 @@ class Updater:
             cmd.append(f"--window-scale={scale:.2f}")
         if cookies_path:
             cmd.append(f"--cookies-file={cookies_path}")
-        if sponsorblock_enabled and sponsorblock_script_path:
-            cmd.append(f"--script={sponsorblock_script_path}")
 
         return Updater.popen_host(cmd)
 
     # ----------------------------
     # YT-DLP
     # ----------------------------
-    @staticmethod
-    def ytdlp_available() -> bool:
         return Updater.has_binary("yt-dlp")
 
     @staticmethod
