@@ -33,6 +33,7 @@ def load_settings() -> dict:
         "quality_target": "1080",
         "window_mode": "windowed",
         "window_scale_percent": 80,
+        "sponsorblock_enabled": False,
     }
 
     if os.path.exists(SETTINGS_FILE):
@@ -94,12 +95,13 @@ def detect_system_theme() -> str:
 
 class YtMpvApp(Gtk.Application):
 
-    def __init__(self, cookie_db_path: str, cookie_export_path: str):
+    def __init__(self, cookie_db_path: str, cookie_export_path: str, sponsorblock_script_path: str = None):
         super().__init__(application_id="io.github.blacksamdev.Popcorn")
         self.connect("activate", self.on_activate)
 
         self.cookie_db_path = cookie_db_path
         self.cookie_export_path = cookie_export_path
+        self.sponsorblock_script_path = sponsorblock_script_path
         self.settings = load_settings()
 
     # ───────────── Activation ─────────────
@@ -243,7 +245,8 @@ class YtMpvApp(Gtk.Application):
             self.cookie_db_path,
             self.cookie_export_path,
             self.win,
-            playback_profile=self.settings.get("playback_profile", "gaming")
+            playback_profile=self.settings.get("playback_profile", "gaming"),
+            sponsorblock_script_path=self.sponsorblock_script_path,
         )
 
         self.player.on_show_loading = self._show_loading_overlay
@@ -251,6 +254,8 @@ class YtMpvApp(Gtk.Application):
         self.player.on_show_notice = self._show_loading_notice
         self.player.on_status_change = self._set_status
         self._apply_player_settings()
+        self.player.prefetch_cookies()
+        self.player.prewarm_mpv()
 
     def _harden_cookie_paths(self):
         state_dir = os.path.dirname(self.cookie_db_path)
@@ -485,6 +490,20 @@ class YtMpvApp(Gtk.Application):
         scale_row.append(self.scale_spin)
         box.append(scale_row)
 
+        sponsorblock_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        sponsorblock_label = Gtk.Label(label="SponsorBlock:")
+        sponsorblock_label.set_xalign(0)
+        sponsorblock_label.set_hexpand(True)
+        sponsorblock_row.append(sponsorblock_label)
+        self.sponsorblock_switch = Gtk.Switch()
+        self.sponsorblock_switch.set_active(self.pending_settings.get("sponsorblock_enabled", False))
+        self.sponsorblock_switch.connect("state-set", self._on_sponsorblock_changed)
+        if not self.sponsorblock_script_path:
+            self.sponsorblock_switch.set_sensitive(False)
+            sponsorblock_label.set_tooltip_text("Script SponsorBlock non disponible dans ce build.")
+        sponsorblock_row.append(self.sponsorblock_switch)
+        box.append(sponsorblock_row)
+
         help_label = Gtk.Label(
             label=(
                 "Lecture externe : la video s'ouvre dans MPV.\n"
@@ -505,6 +524,10 @@ class YtMpvApp(Gtk.Application):
         self._sync_scale_sensitivity()
         self._sync_save_button_state()
         return popover
+
+    def _on_sponsorblock_changed(self, switch, state):
+        self.pending_settings["sponsorblock_enabled"] = state
+        self._sync_save_button_state()
 
     def _on_scale_changed(self, scale):
         value = int(scale.get_value())
@@ -529,6 +552,7 @@ class YtMpvApp(Gtk.Application):
             quality_target=self.settings.get("quality_target", "1080"),
             window_mode=self.settings.get("window_mode", "windowed"),
             window_scale_percent=int(self.settings.get("window_scale_percent", 80)),
+            sponsorblock_enabled=bool(self.settings.get("sponsorblock_enabled", False)),
         )
 
     def _sync_scale_sensitivity(self):
@@ -541,6 +565,6 @@ class YtMpvApp(Gtk.Application):
     def _sync_save_button_state(self):
         has_changes = any(
             self.settings.get(key) != self.pending_settings.get(key)
-            for key in ("quality_target", "window_mode", "window_scale_percent")
+            for key in ("quality_target", "window_mode", "window_scale_percent", "sponsorblock_enabled")
         )
         self.save_button.set_sensitive(has_changes)

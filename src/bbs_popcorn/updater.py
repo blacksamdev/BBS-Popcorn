@@ -84,12 +84,18 @@ class Updater:
         use_fallback_format: bool = False,
         quality_target: str = "1080",
         window_mode: str = "windowed",
-        window_scale_percent: int = 80
+        window_scale_percent: int = 80,
+        start_pos: float = None,
+        ipc_socket_path: str = None,
+        sponsorblock_enabled: bool = False,
+        sponsorblock_script_path: str = None,
     ):
         run_args = ["flatpak", "run"]
         if cookies_path:
             # Allow MPV Flatpak to read exported cookies from this app data path.
             run_args.append(f"--filesystem={cookies_path}:ro")
+        if sponsorblock_enabled and sponsorblock_script_path:
+            run_args.append(f"--filesystem={sponsorblock_script_path}:ro")
 
         if quality_target not in Updater.QUALITY_TARGETS:
             quality_target = "1080"
@@ -128,7 +134,65 @@ class Updater:
             cmd.append(f"--window-scale={scale:.2f}")
         if cookies_path:
             cmd.append(f"--cookies-file={cookies_path}")
+        if start_pos and start_pos > 0:
+            cmd.append(f"--start={start_pos:.1f}")
+        if ipc_socket_path:
+            cmd.append(f"--input-ipc-server={ipc_socket_path}")
+        if sponsorblock_enabled and sponsorblock_script_path:
+            cmd.append(f"--script={sponsorblock_script_path}")
         cmd.append(url)
+        return Updater.popen_host(cmd)
+
+    @staticmethod
+    def start_idle(
+        ipc_socket_path: str,
+        cookies_path: str = None,
+        quality_target: str = "1080",
+        window_mode: str = "windowed",
+        window_scale_percent: int = 80,
+        sponsorblock_enabled: bool = False,
+        sponsorblock_script_path: str = None,
+    ):
+        """Launch MPV in idle mode with an IPC socket for pre-warming."""
+        if quality_target not in Updater.QUALITY_TARGETS:
+            quality_target = "1080"
+
+        ytdl_format = (
+            f"bestvideo[height<={quality_target}][vcodec^=avc1]+"
+            f"bestaudio/best[height<={quality_target}]"
+        )
+
+        run_args = ["flatpak", "run"]
+        if cookies_path:
+            run_args.append(f"--filesystem={cookies_path}:ro")
+        if sponsorblock_enabled and sponsorblock_script_path:
+            run_args.append(f"--filesystem={sponsorblock_script_path}:ro")
+
+        cmd = run_args + [
+            "io.mpv.Mpv",
+            f"--ytdl-format={ytdl_format}",
+            "--cookies",
+            "--hwdec=auto-safe",
+            "--vo=gpu",
+            "--gpu-api=opengl",
+            "--force-window=no",
+            "--idle=yes",
+            f"--input-ipc-server={ipc_socket_path}",
+            "--ontop=yes",
+            "--title=BBS pOpcOrn - ${media-title}",
+            "--volume=100",
+        ]
+        if window_mode == "fullscreen":
+            cmd.append("--fullscreen=yes")
+        else:
+            cmd.append("--fullscreen=no")
+            scale = max(50, min(100, int(window_scale_percent))) / 100.0
+            cmd.append(f"--window-scale={scale:.2f}")
+        if cookies_path:
+            cmd.append(f"--cookies-file={cookies_path}")
+        if sponsorblock_enabled and sponsorblock_script_path:
+            cmd.append(f"--script={sponsorblock_script_path}")
+
         return Updater.popen_host(cmd)
 
     # ----------------------------
