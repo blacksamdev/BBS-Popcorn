@@ -125,8 +125,9 @@ class YtMpvApp(Gtk.Application):
         self.url_bar = Gtk.Entry()
         self.url_bar.set_hexpand(True)
         self.url_bar.set_text(YOUTUBE_URL)
-        self.url_bar.set_editable(False)
-        self.url_bar.set_can_focus(False)
+        self.url_bar.set_editable(True)
+        self.url_bar.set_can_focus(True)
+        self.url_bar.connect("activate", self._on_url_bar_activate)
 
         btn_settings = Gtk.MenuButton(label="⚙")
         btn_settings.set_popover(self._build_settings_popover())
@@ -238,6 +239,7 @@ class YtMpvApp(Gtk.Application):
 
         # ───────── Window ─────────
         self.win.set_child(vbox)
+        self.win.connect("destroy", self._on_shutdown)
         self.win.present()
 
         # ───────── Player ─────────
@@ -284,10 +286,7 @@ class YtMpvApp(Gtk.Application):
     def on_decide_policy(self, webview, decision, decision_type):
         if decision_type != WebKit.PolicyDecisionType.NAVIGATION_ACTION:
             return False
-        action = decision.get_navigation_action()
-        if not action:
-            return False
-        request = action.get_request()
+        request = decision.get_request()
         if not request:
             return False
         uri = request.get_uri() or ""
@@ -409,7 +408,33 @@ class YtMpvApp(Gtk.Application):
         url = message.to_string()
         print(f"[BBS Popcorn] Play: {url}")
         log_event(f"Play request: {url}")
+        resume_pos = self.player._resume.get(url)
+        if resume_pos:
+            mins = int(resume_pos) // 60
+            secs = int(resume_pos) % 60
+            self._set_status(f"Reprise a {mins}:{secs:02d}...")
         self.player.play(url)
+
+    def _on_url_bar_activate(self, entry):
+        url = entry.get_text().strip()
+        if not url:
+            return
+        if not url.startswith("http"):
+            url = "https://" + url
+        if "youtube.com/watch" in url or "youtube.com/playlist" in url or "youtu.be/" in url:
+            print(f"[BBS Popcorn] Play from URL bar: {url}")
+            log_event(f"Play request (url bar): {url}")
+            resume_pos = self.player._resume.get(url)
+            if resume_pos:
+                mins = int(resume_pos) // 60
+                secs = int(resume_pos) % 60
+                self._set_status(f"Reprise a {mins}:{secs:02d}...")
+            self.player.play(url)
+        else:
+            self.webview.load_uri(url)
+
+    def _on_shutdown(self, _win):
+        self.player.cleanup()
 
     def _show_loading_overlay(self):
         self.loading_label.set_text("Chargement de la video...")
