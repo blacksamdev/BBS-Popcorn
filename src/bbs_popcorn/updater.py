@@ -187,6 +187,8 @@ class Updater:
     # ----------------------------
     # YT-DLP
     # ----------------------------
+    @staticmethod
+    def ytdlp_available() -> bool:
         return Updater.has_binary("yt-dlp")
 
     @staticmethod
