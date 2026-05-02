@@ -286,7 +286,10 @@ class YtMpvApp(Gtk.Application):
     def on_decide_policy(self, webview, decision, decision_type):
         if decision_type != WebKit.PolicyDecisionType.NAVIGATION_ACTION:
             return False
-        request = decision.get_request()
+        action = decision.get_navigation_action()
+        if not action:
+            return False
+        request = action.get_request()
         if not request:
             return False
         uri = request.get_uri() or ""
@@ -466,6 +469,7 @@ class YtMpvApp(Gtk.Application):
     def _build_settings_popover(self):
         self.pending_settings = dict(self.settings)
         popover = Gtk.Popover()
+        self._settings_popover = popover
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_margin_top(8)
         box.set_margin_bottom(8)
@@ -574,6 +578,8 @@ class YtMpvApp(Gtk.Application):
         save_settings(self.settings)
         self._apply_player_settings()
         self._sync_save_button_state()
+        if hasattr(self, "_settings_popover"):
+            self._settings_popover.popdown()
 
     def _apply_player_settings(self):
         self.player.update_playback_settings(
