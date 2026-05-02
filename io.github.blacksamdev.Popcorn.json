@@ -13,7 +13,6 @@
     "--device=dri",
     "--filesystem=xdg-config/bbs-popcorn:create",
     "--filesystem=xdg-config/mpv:create",
-    "--filesystem=~/.var/app/io.mpv.Mpv/config/mpv/scripts:create",
     "--talk-name=org.freedesktop.Flatpak",
     "--talk-name=org.freedesktop.secrets"
   ],
@@ -28,7 +27,7 @@
         {
           "type": "git",
           "url": "https://github.com/yt-dlp/yt-dlp.git",
-          "branch": "master"
+          "tag": "2026.03.17"
         }
       ]
     },
@@ -60,6 +59,7 @@
         "install -Dm644 src/bbs_popcorn/cookies.py /app/lib/bbs-popcorn/bbs_popcorn/cookies.py",
         "install -Dm644 src/bbs_popcorn/logging_utils.py /app/lib/bbs-popcorn/bbs_popcorn/logging_utils.py",
         "install -Dm644 src/bbs_popcorn/resume_store.py /app/lib/bbs-popcorn/bbs_popcorn/resume_store.py",
+        "install -Dm644 src/bbs_popcorn/history_store.py /app/lib/bbs-popcorn/bbs_popcorn/history_store.py",
         "install -Dm644 data/io.github.blacksamdev.Popcorn.desktop /app/share/applications/io.github.blacksamdev.Popcorn.desktop",
         "install -Dm644 data/io.github.blacksamdev.Popcorn.svg /app/share/icons/hicolor/scalable/apps/io.github.blacksamdev.Popcorn.svg"
       ],

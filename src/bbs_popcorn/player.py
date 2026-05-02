@@ -112,9 +112,23 @@ class MpvPlayer:
         while time.monotonic() < deadline:
             if os.path.exists(_MPV_IPC_SOCKET):
                 log_event("MPV pre-warms: IPC socket pret.", level="debug")
+                threading.Thread(target=self._watchdog, daemon=True).start()
                 return
             time.sleep(0.05)
         log_event("MPV pre-warm: socket absent apres delai.", level="debug")
+
+    def _watchdog(self):
+        """Surveille le process MPV idle et le relance s'il meurt inopinement."""
+        while True:
+            time.sleep(10)
+            if self._is_playing:
+                continue
+            if self._mpv_idle_proc is None:
+                return
+            if self._mpv_idle_proc.poll() is not None:
+                log_event("MPV idle process termine, relance...", level="debug")
+                self.prewarm_mpv()
+                return  # le nouveau prewarm lancera son propre watchdog
 
     def _ipc_loadfile(self, url: str, start_pos: float = None) -> bool:
         """Send a loadfile command to the pre-warmed MPV via IPC socket."""
