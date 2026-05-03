@@ -12,7 +12,6 @@ from bbs_popcorn.resume_store import ResumeStore
 from bbs_popcorn.updater import Updater
 
 _MPV_IPC_SOCKET = "/tmp/bbs-popcorn-mpv.sock"
-_MPV_SCRIPTS_DIR = os.path.expanduser("~/.var/app/io.mpv.Mpv/config/mpv/scripts")
 
 
 class MpvPlayer:
@@ -106,29 +105,17 @@ class MpvPlayer:
             quality_target=self.quality_target,
             window_mode=self.window_mode,
             window_scale_percent=self.window_scale_percent,
+            sponsorblock_enabled=self.sponsorblock_enabled,
+            sponsorblock_script_path=self.sponsorblock_script_path,
         )
         # Wait for MPV to create the IPC socket (typically < 1 s).
         deadline = time.monotonic() + 4.0
         while time.monotonic() < deadline:
             if os.path.exists(_MPV_IPC_SOCKET):
                 log_event("MPV pre-warms: IPC socket pret.", level="debug")
-                threading.Thread(target=self._watchdog, daemon=True).start()
                 return
             time.sleep(0.05)
         log_event("MPV pre-warm: socket absent apres delai.", level="debug")
-
-    def _watchdog(self):
-        """Surveille le process MPV idle et le relance s'il meurt inopinement."""
-        while True:
-            time.sleep(10)
-            if self._is_playing:
-                continue
-            if self._mpv_idle_proc is None:
-                return
-            if self._mpv_idle_proc.poll() is not None:
-                log_event("MPV idle process termine, relance...", level="debug")
-                self.prewarm_mpv()
-                return  # le nouveau prewarm lancera son propre watchdog
 
     def _ipc_loadfile(self, url: str, start_pos: float = None) -> bool:
         """Send a loadfile command to the pre-warmed MPV via IPC socket."""
@@ -214,9 +201,7 @@ class MpvPlayer:
     def _prepare_url(self, url: str) -> str:
         match = re.search(r"[?&]list=([a-zA-Z0-9_-]+)", url)
         if match:
-            playlist_id = match.group(1)
-            if not playlist_id.startswith("RD"):
-                return f"https://www.youtube.com/playlist?list={playlist_id}"
+            return f"https://www.youtube.com/playlist?list={match.group(1)}"
         return url
 
     # ─────────────────────────────
@@ -244,42 +229,8 @@ class MpvPlayer:
         self.window_mode = window_mode
         self.window_scale_percent = window_scale_percent
         self.sponsorblock_enabled = sponsorblock_enabled
-        self._sync_sponsorblock()
         if not self._is_playing:
             self.prewarm_mpv()
-
-    def _sync_sponsorblock(self):
-        """Installe ou supprime les fichiers SponsorBlock dans le dossier scripts de MPV."""
-        if not self.sponsorblock_script_path:
-            return
-        import shutil
-        src_dir = os.path.dirname(self.sponsorblock_script_path)
-
-        if self.sponsorblock_enabled:
-            try:
-                os.makedirs(_MPV_SCRIPTS_DIR, exist_ok=True)
-                shared_dst = os.path.join(_MPV_SCRIPTS_DIR, "sponsorblock_shared")
-                os.makedirs(shared_dst, exist_ok=True)
-                shutil.copy2(self.sponsorblock_script_path,
-                             os.path.join(_MPV_SCRIPTS_DIR, "sponsorblock.lua"))
-                src_shared = os.path.join(src_dir, "sponsorblock_shared")
-                for fname in ("main.lua", "sponsorblock.py"):
-                    shutil.copy2(os.path.join(src_shared, fname),
-                                 os.path.join(shared_dst, fname))
-                log_event("SponsorBlock: fichiers installes dans scripts MPV.", level="debug")
-            except Exception as exc:
-                log_event(f"SponsorBlock: echec installation: {exc}", level="debug")
-        else:
-            try:
-                lua = os.path.join(_MPV_SCRIPTS_DIR, "sponsorblock.lua")
-                shared = os.path.join(_MPV_SCRIPTS_DIR, "sponsorblock_shared")
-                if os.path.exists(lua):
-                    os.remove(lua)
-                if os.path.isdir(shared):
-                    shutil.rmtree(shared)
-                log_event("SponsorBlock: fichiers supprimes des scripts MPV.", level="debug")
-            except Exception as exc:
-                log_event(f"SponsorBlock: echec suppression: {exc}", level="debug")
 
     # ─────────────────────────────
     # launch mpv
@@ -302,15 +253,18 @@ class MpvPlayer:
 
             # Use pre-warmed MPV via IPC if available, otherwise spawn fresh.
             start_pos = self._resume.get(url)
-            ipc_ready = (
-                os.path.exists(_MPV_IPC_SOCKET)
-                and self._mpv_idle_proc is not None
-                and self._mpv_idle_proc.poll() is None
-            )
-            if ipc_ready and self._ipc_loadfile(url, start_pos=start_pos):
-                process = self._mpv_idle_proc
-                self._mpv_idle_proc = None
-                # Give MPV a moment to process the loadfile command before polling.
+            with self._play_lock:
+                ipc_ready = (
+                    os.path.exists(_MPV_IPC_SOCKET)
+                    and self._mpv_idle_proc is not None
+                    and self._mpv_idle_proc.poll() is None
+                )
+                idle_proc = self._mpv_idle_proc if ipc_ready else None
+                if ipc_ready:
+                    self._mpv_idle_proc = None
+
+            if idle_proc and self._ipc_loadfile(url, start_pos=start_pos):
+                process = idle_proc
                 time.sleep(0.3)
             else:
                 process = self._start_process(
@@ -411,6 +365,8 @@ class MpvPlayer:
             window_scale_percent=self.window_scale_percent,
             start_pos=start_pos,
             ipc_socket_path=ipc_socket_path,
+            sponsorblock_enabled=self.sponsorblock_enabled,
+            sponsorblock_script_path=self.sponsorblock_script_path,
         )
 
     def _retry_with_fallback(self, url: str, cookies_path: str) -> bool:

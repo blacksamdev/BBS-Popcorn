@@ -47,8 +47,6 @@ def main():
     # can access it via --filesystem= (same mechanism as cookies).
     sponsorblock_script_path = None
     dest = os.path.join(state_dir, "sponsorblock.lua")
-    shared_src = "/app/share/bbs-popcorn/sponsorblock_shared"
-    shared_dest = os.path.join(state_dir, "sponsorblock_shared")
     if os.path.exists(_BUNDLED_SPONSORBLOCK):
         try:
             if not os.path.exists(dest) or (
@@ -56,15 +54,6 @@ def main():
             ):
                 shutil.copy2(_BUNDLED_SPONSORBLOCK, dest)
                 os.chmod(dest, 0o600)
-            if os.path.isdir(shared_src):
-                if os.path.exists(shared_dest):
-                    shutil.rmtree(shared_dest)
-                shutil.copytree(shared_src, shared_dest)
-                for f in os.listdir(shared_dest):
-                    try:
-                        os.chmod(os.path.join(shared_dest, f), 0o600)
-                    except OSError:
-                        pass
             sponsorblock_script_path = dest
         except OSError:
             pass

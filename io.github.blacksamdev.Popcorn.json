@@ -12,10 +12,10 @@
     "--socket=pulseaudio",
     "--device=dri",
     "--filesystem=xdg-config/bbs-popcorn:create",
-    "--filesystem=xdg-config/mpv:create",
     "--talk-name=org.freedesktop.Flatpak",
     "--talk-name=org.freedesktop.secrets"
   ],
+
   "modules": [
     {
       "name": "yt-dlp",
@@ -27,21 +27,7 @@
         {
           "type": "git",
           "url": "https://github.com/yt-dlp/yt-dlp.git",
-          "tag": "2026.03.17"
-        }
-      ]
-    },
-    {
-      "name": "sponsorblock-script",
-      "buildsystem": "simple",
-      "build-commands": [
-        "install -Dm644 sponsorblock.lua /app/share/bbs-popcorn/sponsorblock.lua"
-      ],
-      "sources": [
-        {
-          "type": "file",
-          "url": "https://raw.githubusercontent.com/po5/mpv_sponsorblock/master/sponsorblock.lua",
-          "sha256": "2926efc61866ff784cfd6c5753eb4d88382d395f0af8062aea834eb772589ba4"
+          "branch": "master"
         }
       ]
     },
@@ -59,14 +45,19 @@
         "install -Dm644 src/bbs_popcorn/cookies.py /app/lib/bbs-popcorn/bbs_popcorn/cookies.py",
         "install -Dm644 src/bbs_popcorn/logging_utils.py /app/lib/bbs-popcorn/bbs_popcorn/logging_utils.py",
         "install -Dm644 src/bbs_popcorn/resume_store.py /app/lib/bbs-popcorn/bbs_popcorn/resume_store.py",
-        "install -Dm644 src/bbs_popcorn/history_store.py /app/lib/bbs-popcorn/bbs_popcorn/history_store.py",
         "install -Dm644 data/io.github.blacksamdev.Popcorn.desktop /app/share/applications/io.github.blacksamdev.Popcorn.desktop",
-        "install -Dm644 data/io.github.blacksamdev.Popcorn.svg /app/share/icons/hicolor/scalable/apps/io.github.blacksamdev.Popcorn.svg"
+        "install -Dm644 data/io.github.blacksamdev.Popcorn.svg /app/share/icons/hicolor/scalable/apps/io.github.blacksamdev.Popcorn.svg",
+        "install -Dm644 sponsorblock.lua /app/share/bbs-popcorn/sponsorblock.lua"
       ],
       "sources": [
         {
           "type": "dir",
           "path": "."
+        },
+        {
+          "type": "file",
+          "url": "https://raw.githubusercontent.com/po5/mpv_sponsorblock/master/sponsorblock.lua",
+          "sha256": "17f5e624c5b41a357da654bd37fb92e563f40021809cf35d81730bb10011980e"
         }
       ]
     }

@@ -10,10 +10,16 @@ from gi.repository import Gtk, WebKit, GLib
 
 from bbs_popcorn.logging_utils import log_event
 from bbs_popcorn.player import MpvPlayer
-from bbs_popcorn.history_store import HistoryStore
 
 
 YOUTUBE_URL = "https://www.youtube.com"
+
+
+def format_timestamp(seconds: float) -> str:
+    """Formate un nombre de secondes en mm:ss."""
+    mins = int(seconds // 60)
+    secs = int(seconds % 60)
+    return f"{mins}:{secs:02d}"
 
 SETTINGS_FILE = os.path.join(
     GLib.get_user_config_dir(),
@@ -104,7 +110,6 @@ class YtMpvApp(Gtk.Application):
         self.cookie_export_path = cookie_export_path
         self.sponsorblock_script_path = sponsorblock_script_path
         self.settings = load_settings()
-        self.history = HistoryStore()
 
     # ───────────── Activation ─────────────
 
@@ -134,15 +139,11 @@ class YtMpvApp(Gtk.Application):
         btn_settings = Gtk.MenuButton(label="⚙")
         btn_settings.set_popover(self._build_settings_popover())
 
-        self.btn_history = Gtk.MenuButton(label="🕐")
-        self.btn_history.set_tooltip_text("Historique")
-
         navbar.append(btn_back)
         navbar.append(btn_forward)
         navbar.append(btn_reload)
         navbar.append(btn_home)
         navbar.append(self.url_bar)
-        navbar.append(self.btn_history)
         navbar.append(btn_settings)
 
         # ───────── WebKit bridge ─────────
@@ -264,7 +265,6 @@ class YtMpvApp(Gtk.Application):
         self._apply_player_settings()
         self.player.prefetch_cookies()
         self.player.prewarm_mpv()
-        self.btn_history.set_popover(self._build_history_popover())
 
     def _harden_cookie_paths(self):
         state_dir = os.path.dirname(self.cookie_db_path)
@@ -293,10 +293,7 @@ class YtMpvApp(Gtk.Application):
     def on_decide_policy(self, webview, decision, decision_type):
         if decision_type != WebKit.PolicyDecisionType.NAVIGATION_ACTION:
             return False
-        action = decision.get_navigation_action()
-        if not action:
-            return False
-        request = action.get_request()
+        request = decision.get_request()
         if not request:
             return False
         uri = request.get_uri() or ""
@@ -421,9 +418,7 @@ class YtMpvApp(Gtk.Application):
         self.history.add(url, title=self.webview.get_title() or "")
         resume_pos = self.player._resume.get(url)
         if resume_pos:
-            mins = int(resume_pos) // 60
-            secs = int(resume_pos) % 60
-            self._set_status(f"Reprise a {mins}:{secs:02d}...")
+            self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
         self.player.play(url)
 
     def _on_url_bar_activate(self, entry):
@@ -438,92 +433,13 @@ class YtMpvApp(Gtk.Application):
             self.history.add(url, title=self.webview.get_title() or "")
             resume_pos = self.player._resume.get(url)
             if resume_pos:
-                mins = int(resume_pos) // 60
-                secs = int(resume_pos) % 60
-                self._set_status(f"Reprise a {mins}:{secs:02d}...")
+                self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
             self.player.play(url)
         else:
             self.webview.load_uri(url)
 
     def _on_shutdown(self, _win):
         self.player.cleanup()
-
-    def _build_history_popover(self):
-        popover = Gtk.Popover()
-        self._history_popover = popover
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        box.set_margin_top(8)
-        box.set_margin_bottom(8)
-        box.set_margin_start(10)
-        box.set_margin_end(10)
-
-        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        title_label = Gtk.Label(label="Historique")
-        title_label.set_hexpand(True)
-        title_label.set_xalign(0)
-        header.append(title_label)
-        btn_clear = Gtk.Button(label="Effacer")
-        btn_clear.connect("clicked", self._on_history_clear)
-        header.append(btn_clear)
-        box.append(header)
-
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_min_content_height(200)
-        scrolled.set_max_content_height(400)
-        scrolled.set_min_content_width(360)
-        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-
-        self._history_list_box = Gtk.ListBox()
-        self._history_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
-        self._refresh_history_list()
-        scrolled.set_child(self._history_list_box)
-        box.append(scrolled)
-
-        popover.set_child(box)
-        popover.connect("show", lambda _: self._refresh_history_list())
-        return popover
-
-    def _refresh_history_list(self):
-        while child := self._history_list_box.get_first_child():
-            self._history_list_box.remove(child)
-
-        entries = self.history.entries()
-        if not entries:
-            lbl = Gtk.Label(label="Aucun historique.")
-            lbl.set_margin_top(8)
-            lbl.set_margin_bottom(8)
-            self._history_list_box.append(lbl)
-            return
-
-        for entry in entries:
-            url = entry.get("url", "")
-            title = entry.get("title", url)
-            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-            row_box.set_margin_top(4)
-            row_box.set_margin_bottom(4)
-            lbl = Gtk.Label(label=title[:60] + ("…" if len(title) > 60 else ""))
-            lbl.set_hexpand(True)
-            lbl.set_xalign(0)
-            lbl.set_tooltip_text(url)
-            row_box.append(lbl)
-            btn = Gtk.Button(label="▶")
-            btn.connect("clicked", self._on_history_play, url)
-            row_box.append(btn)
-            self._history_list_box.append(row_box)
-
-    def _on_history_play(self, _btn, url):
-        self._history_popover.popdown()
-        self.history.add(url)
-        resume_pos = self.player._resume.get(url)
-        if resume_pos:
-            mins = int(resume_pos) // 60
-            secs = int(resume_pos) % 60
-            self._set_status(f"Reprise a {mins}:{secs:02d}...")
-        self.player.play(url)
-
-    def _on_history_clear(self, _btn):
-        self.history.clear()
-        self._refresh_history_list()
 
     def _show_loading_overlay(self):
         self.loading_label.set_text("Chargement de la video...")
@@ -555,7 +471,6 @@ class YtMpvApp(Gtk.Application):
     def _build_settings_popover(self):
         self.pending_settings = dict(self.settings)
         popover = Gtk.Popover()
-        self._settings_popover = popover
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_margin_top(8)
         box.set_margin_bottom(8)
@@ -664,8 +579,6 @@ class YtMpvApp(Gtk.Application):
         save_settings(self.settings)
         self._apply_player_settings()
         self._sync_save_button_state()
-        if hasattr(self, "_settings_popover"):
-            self._settings_popover.popdown()
 
     def _apply_player_settings(self):
         self.player.update_playback_settings(
