@@ -14,13 +14,6 @@ from bbs_popcorn.player import MpvPlayer
 
 YOUTUBE_URL = "https://www.youtube.com"
 
-
-def format_timestamp(seconds: float) -> str:
-    """Formate un nombre de secondes en mm:ss."""
-    mins = int(seconds // 60)
-    secs = int(seconds % 60)
-    return f"{mins}:{secs:02d}"
-
 SETTINGS_FILE = os.path.join(
     GLib.get_user_config_dir(),
     "bbs-popcorn",
@@ -132,9 +125,8 @@ class YtMpvApp(Gtk.Application):
         self.url_bar = Gtk.Entry()
         self.url_bar.set_hexpand(True)
         self.url_bar.set_text(YOUTUBE_URL)
-        self.url_bar.set_editable(True)
-        self.url_bar.set_can_focus(True)
-        self.url_bar.connect("activate", self._on_url_bar_activate)
+        self.url_bar.set_editable(False)
+        self.url_bar.set_can_focus(False)
 
         btn_settings = Gtk.MenuButton(label="⚙")
         btn_settings.set_popover(self._build_settings_popover())
@@ -246,7 +238,6 @@ class YtMpvApp(Gtk.Application):
 
         # ───────── Window ─────────
         self.win.set_child(vbox)
-        self.win.connect("destroy", self._on_shutdown)
         self.win.present()
 
         # ───────── Player ─────────
@@ -415,31 +406,7 @@ class YtMpvApp(Gtk.Application):
         url = message.to_string()
         print(f"[BBS Popcorn] Play: {url}")
         log_event(f"Play request: {url}")
-        self.history.add(url, title=self.webview.get_title() or "")
-        resume_pos = self.player._resume.get(url)
-        if resume_pos:
-            self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
         self.player.play(url)
-
-    def _on_url_bar_activate(self, entry):
-        url = entry.get_text().strip()
-        if not url:
-            return
-        if not url.startswith("http"):
-            url = "https://" + url
-        if "youtube.com/watch" in url or "youtube.com/playlist" in url or "youtu.be/" in url:
-            print(f"[BBS Popcorn] Play from URL bar: {url}")
-            log_event(f"Play request (url bar): {url}")
-            self.history.add(url, title=self.webview.get_title() or "")
-            resume_pos = self.player._resume.get(url)
-            if resume_pos:
-                self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
-            self.player.play(url)
-        else:
-            self.webview.load_uri(url)
-
-    def _on_shutdown(self, _win):
-        self.player.cleanup()
 
     def _show_loading_overlay(self):
         self.loading_label.set_text("Chargement de la video...")

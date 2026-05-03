@@ -58,19 +58,6 @@ class MpvPlayer:
             return self.cookie_export_path
         return None
 
-    def cleanup(self):
-        """Appelé à la fermeture de l'app : termine le process idle et supprime le socket."""
-        if self._mpv_idle_proc and self._mpv_idle_proc.poll() is None:
-            try:
-                self._mpv_idle_proc.terminate()
-            except Exception:
-                pass
-        try:
-            os.remove(_MPV_IPC_SOCKET)
-        except OSError:
-            pass
-        log_event("Player cleanup effectue.")
-
     def prefetch_cookies(self):
         """Export cookies in background so they are ready on next play."""
         if self._cookie_prefetch_thread and self._cookie_prefetch_thread.is_alive():
@@ -174,26 +161,6 @@ class MpvPlayer:
             time.sleep(5.0)
         self._tracking = False
 
-    def _wait_with_timeout(self, process, timeout: int = 120) -> int:
-        """Attend la fin du process avec un timeout en secondes. Retourne le code de retour."""
-        result = [None]
-
-        def _waiter():
-            result[0] = process.wait()
-
-        t = threading.Thread(target=_waiter, daemon=True)
-        t.start()
-        t.join(timeout=timeout)
-        if t.is_alive():
-            log_event(f"MPV timeout apres {timeout}s, terminaison forcee.", level="debug")
-            try:
-                process.terminate()
-            except Exception:
-                pass
-            t.join(timeout=5)
-            return process.returncode if process.returncode is not None else -1
-        return result[0]
-
     # ─────────────────────────────
     # url normalization
     # ─────────────────────────────
@@ -253,18 +220,15 @@ class MpvPlayer:
 
             # Use pre-warmed MPV via IPC if available, otherwise spawn fresh.
             start_pos = self._resume.get(url)
-            with self._play_lock:
-                ipc_ready = (
-                    os.path.exists(_MPV_IPC_SOCKET)
-                    and self._mpv_idle_proc is not None
-                    and self._mpv_idle_proc.poll() is None
-                )
-                idle_proc = self._mpv_idle_proc if ipc_ready else None
-                if ipc_ready:
-                    self._mpv_idle_proc = None
-
-            if idle_proc and self._ipc_loadfile(url, start_pos=start_pos):
-                process = idle_proc
+            ipc_ready = (
+                os.path.exists(_MPV_IPC_SOCKET)
+                and self._mpv_idle_proc is not None
+                and self._mpv_idle_proc.poll() is None
+            )
+            if ipc_ready and self._ipc_loadfile(url, start_pos=start_pos):
+                process = self._mpv_idle_proc
+                self._mpv_idle_proc = None
+                # Give MPV a moment to process the loadfile command before polling.
                 time.sleep(0.3)
             else:
                 process = self._start_process(
@@ -292,7 +256,7 @@ class MpvPlayer:
             threading.Thread(
                 target=self._track_position, args=(url,), daemon=True
             ).start()
-            return_code = self._wait_with_timeout(process)
+            return_code = process.wait()
             self._tracking = False
             self._resume.set(url, self._tracked_pos, self._tracked_duration)
             if return_code != 0:
@@ -384,7 +348,7 @@ class MpvPlayer:
         threading.Thread(
             target=self._track_position, args=(url,), daemon=True
         ).start()
-        return_code = self._wait_with_timeout(process)
+        return_code = process.wait()
         self._tracking = False
         self._resume.set(url, self._tracked_pos, self._tracked_duration)
         if return_code != 0:
