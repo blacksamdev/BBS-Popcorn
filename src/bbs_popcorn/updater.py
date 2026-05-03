@@ -121,6 +121,7 @@ class Updater:
             "--ontop=yes",
             "--title=BBS pOpcOrn - ${media-title}",
             "--volume=100",
+            "--msg-level=osd/libass=no",
         ]
         cmd.extend(profile_flags)
         if window_mode == "fullscreen":
@@ -172,6 +173,7 @@ class Updater:
             "--ontop=yes",
             "--title=BBS pOpcOrn - ${media-title}",
             "--volume=100",
+            "--msg-level=osd/libass=no",
         ]
         if window_mode == "fullscreen":
             cmd.append("--fullscreen=yes")
