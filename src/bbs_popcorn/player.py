@@ -1,4 +1,5 @@
 import re
+import shutil
 import time
 import threading
 import os
@@ -231,7 +232,6 @@ class MpvPlayer:
         """Installe ou supprime les fichiers SponsorBlock dans le dossier scripts de MPV."""
         if not self.sponsorblock_script_path:
             return
-        import shutil
         src_dir = os.path.dirname(self.sponsorblock_script_path)
 
         if self.sponsorblock_enabled:
@@ -260,6 +260,21 @@ class MpvPlayer:
             except Exception as exc:
                 log_event(f"SponsorBlock: echec suppression: {exc}", level="debug")
 
+    def _get_monitor_offset(self) -> tuple[int, int]:
+        """Retourne les coordonnées (x, y) du moniteur où se trouve la fenêtre GTK."""
+        try:
+            surface = self.win.get_surface()
+            if surface is None:
+                return (0, 0)
+            display = surface.get_display()
+            monitor = display.get_monitor_at_surface(surface)
+            if monitor is None:
+                return (0, 0)
+            rect = monitor.get_geometry()
+            return (rect.x, rect.y)
+        except Exception:
+            return (0, 0)
+
     # ─────────────────────────────
     # url normalization
     # ─────────────────────────────
@@ -285,7 +300,9 @@ class MpvPlayer:
                 return
             self._is_playing = True
         self._status("Preparation de la lecture...")
-        threading.Thread(target=self._launch, args=(url,), daemon=True).start()
+        # Récupérer l'offset moniteur ici, dans le thread GTK principal.
+        monitor_offset = self._get_monitor_offset()
+        threading.Thread(target=self._launch, args=(url, monitor_offset), daemon=True).start()
 
     def update_playback_settings(
         self,
@@ -306,7 +323,7 @@ class MpvPlayer:
     # launch mpv
     # ─────────────────────────────
 
-    def _launch(self, url: str):
+    def _launch(self, url: str, monitor_offset: tuple[int, int] = (0, 0)):
         cookies_path = None
         try:
             GLib.idle_add(self._show_loading)
@@ -347,10 +364,11 @@ class MpvPlayer:
                     use_fallback_format=False,
                     start_pos=start_pos,
                     ipc_socket_path=_MPV_IPC_SOCKET,
+                    monitor_offset=monitor_offset,
                 )
 
             if process.poll() is not None:
-                if self._retry_with_fallback(url, cookies_path):
+                if self._retry_with_fallback(url, cookies_path, monitor_offset):
                     return
                 print(f"[BBS Popcorn] MPV exited early with code {process.returncode}.")
                 log_event(f"mpv exited early code={process.returncode} url={url}")
@@ -429,6 +447,7 @@ class MpvPlayer:
         use_fallback_format: bool,
         start_pos: float = None,
         ipc_socket_path: str = None,
+        monitor_offset: tuple[int, int] = (0, 0),
     ):
         return Updater.start_play(
             url,
@@ -440,14 +459,16 @@ class MpvPlayer:
             window_scale_percent=self.window_scale_percent,
             start_pos=start_pos,
             ipc_socket_path=ipc_socket_path,
+            monitor_offset=monitor_offset,
         )
 
-    def _retry_with_fallback(self, url: str, cookies_path: str) -> bool:
+    def _retry_with_fallback(self, url: str, cookies_path: str, monitor_offset: tuple[int, int] = (0, 0)) -> bool:
         self._status("Format compatible: nouvelle tentative...")
         process = self._start_process(
             url, cookies_path,
             use_fallback_format=True,
             ipc_socket_path=_MPV_IPC_SOCKET,
+            monitor_offset=monitor_offset,
         )
         time.sleep(0.5)
         if process.poll() is not None:

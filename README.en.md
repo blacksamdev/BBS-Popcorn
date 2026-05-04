@@ -18,6 +18,9 @@ The goal is to provide a lightweight interface without a full browser, relying o
 - Video playback via MPV (external process)
 - Stream resolution via yt-dlp
 - Support for playlists and individual videos
+- Automatic playback position resume
+- Watch history (300 entries, 90 days)
+- SponsorBlock integration (toggle in settings)
 - Cookie storage via WebKitGTK (local only)
 
 During playback, close the MPV window to return to the YouTube window.
@@ -37,6 +40,7 @@ Target behaviour for Flatpak:
 
 - MPV must be installed on the host via Flatpak (`io.mpv.Mpv`)
 - `yt-dlp` is bundled inside the application (included in the Flatpak build)
+- The SponsorBlock script is bundled inside the application
 
 ---
 
@@ -99,7 +103,7 @@ WebKitGTK (YouTube interface)
         │
         ├── yt-dlp (bundled inside pOpcOrn)
         │
-        └── MPV (external tool)
+        └── MPV (external tool, via IPC socket)
 ```
 
 ---
@@ -111,6 +115,7 @@ WebKitGTK (YouTube interface)
 | Interface | Python + GTK4 + WebKitGTK |
 | Player | MPV (Flatpak) |
 | Stream resolution | yt-dlp (bundled inside pOpcOrn) |
+| SponsorBlock | mpv_sponsorblock (bundled inside pOpcOrn) |
 | Cookies | WebKitGTK local storage |
 | Packaging | Flatpak |
 | Distribution | GitHub Pages |
@@ -132,19 +137,25 @@ WebKitGTK (YouTube interface)
 - Cookies managed by WebKitGTK
 - `cookies.sqlite` persists to maintain the YouTube session
 - `cookies.txt` is temporarily exported for MPV then deleted at the end of playback
+- `resume.json` stores playback position per URL (300 entries, 30 days max)
+- `history.json` stores watch history (300 entries, 90 days max)
 - No data transmitted to any third party
 - No backend server
 
 ---
 
-## Quality & MPV window
+## Settings
 
 From the `⚙` icon in the application:
 
 - Maximum target quality (2160 / 1440 / 1080 / 720 / 480)
-- Selection priority (higher / lower)
 - MPV playback mode (windowed / fullscreen)
 - MPV window size (%), active in windowed mode only
+- SponsorBlock: enable/disable automatic skipping of sponsored segments
+
+From the `🕐` icon:
+
+- Watch history with direct resume playback
 
 ---
 

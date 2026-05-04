@@ -1,6 +1,5 @@
 import os
 import json
-import subprocess
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -77,18 +76,6 @@ def save_settings(settings: dict):
         json.dump(settings, f)
 
 
-def detect_system_theme() -> str:
-    try:
-        result = subprocess.run(
-            ["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"],
-            capture_output=True,
-            text=True
-        )
-        if "dark" in result.stdout.lower():
-            return "dark"
-    except Exception:
-        pass
-    return "light"
 
 
 # ─────────────────────────────
@@ -547,7 +534,6 @@ class YtMpvApp(Gtk.Application):
 
     def _on_history_play(self, _btn, url):
         self._history_popover.popdown()
-        self.history.add(url)
         resume_pos = self.player._resume.get(url)
         if resume_pos:
             self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")

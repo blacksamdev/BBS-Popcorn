@@ -6,30 +6,16 @@ import time
 
 
 class Updater:
-    YTDL_FORMATS = {
-        "quality": "bestvideo+bestaudio/best",
-        "gaming": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
-    }
-    YTDL_FALLBACK_FORMATS = {
-        "quality": (
-            "bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/"
-            "best[vcodec^=avc1]/best"
-        ),
-        "gaming": (
-            "bestvideo[height<=1080][vcodec^=avc1]+bestaudio[acodec^=mp4a]/"
-            "best[height<=1080][vcodec^=avc1]/best[height<=1080]"
-        ),
-    }
+    """
+    Gestion des dépendances externes (mpv / yt-dlp)
+    Compatible Flatpak (host fallback via flatpak-spawn).
+    """
+
     PROFILE_FLAGS = {
         "quality": [],
         "gaming": [],
     }
     QUALITY_TARGETS = {"2160", "1440", "1080", "720", "480"}
-
-    """
-    Gestion des dépendances externes (mpv / yt-dlp)
-    Compatible Flatpak (host fallback via flatpak-spawn).
-    """
 
     # ----------------------------
     # Utils
@@ -87,6 +73,7 @@ class Updater:
         window_scale_percent: int = 80,
         start_pos: float = None,
         ipc_socket_path: str = None,
+        monitor_offset: tuple = (0, 0),
     ):
         run_args = ["flatpak", "run"]
         if cookies_path:
@@ -133,6 +120,8 @@ class Updater:
             cmd.append(f"--start={start_pos:.1f}")
         if ipc_socket_path:
             cmd.append(f"--input-ipc-server={ipc_socket_path}")
+        ox, oy = monitor_offset if monitor_offset else (0, 0)
+        cmd.append(f"--geometry=+{ox}+{oy}")
         cmd.append(url)
         return Updater.popen_host(cmd)
 
@@ -237,25 +226,3 @@ class Updater:
             return "Ce live n'a pas encore commence."
         except Exception:
             return None
-
-
-class HostUpdater:
-    """Minimal compatibility shim for existing app hook."""
-
-    def __init__(self, on_done=None):
-        self.on_done = on_done
-
-    def check_and_update(self):
-        status = Updater.status()
-        issues = []
-
-        if not status["mpv"]:
-            issues.append("MPV Flatpak manquant: flatpak install flathub io.mpv.Mpv")
-        if not status["yt-dlp"]:
-            issues.append("yt-dlp introuvable dans l'application")
-
-        if self.on_done:
-            if issues:
-                self.on_done(" | ".join(issues))
-            else:
-                self.on_done("Dépendances OK")

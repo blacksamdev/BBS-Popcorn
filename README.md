@@ -5,19 +5,22 @@
 **YouTube via MPV**
 
 BBS pOpcOrn est un client YouTube Linux basé sur WebKitGTK.
-Il affiche l’interface YouTube dans une fenêtre GTK et délègue la lecture vidéo à MPV via des flux résolus par yt-dlp.
+Il affiche l'interface YouTube dans une fenêtre GTK et délègue la lecture vidéo à MPV via des flux résolus par yt-dlp.
 
-L’objectif est de proposer une interface légère sans navigateur complet, en s’appuyant sur des composants système et utilisateurs.
+L'objectif est de proposer une interface légère sans navigateur complet, en s'appuyant sur des composants système et utilisateurs.
 
 ---
 
 ## Fonctionnement
 
 - Interface YouTube via WebKitGTK
-- Navigation et recherche via l’interface web officielle
+- Navigation et recherche via l'interface web officielle
 - Lecture vidéo via MPV (process externe)
 - Résolution des flux via yt-dlp
 - Support des playlists et vidéos individuelles
+- Reprise automatique de la position de lecture
+- Historique des vidéos jouées (300 entrées, 90 jours)
+- SponsorBlock intégré (activable dans les réglages)
 - Stockage des cookies via WebKitGTK (local uniquement)
 
 Pendant la lecture, fermez la fenêtre MPV pour revenir à la fenêtre YouTube.
@@ -36,7 +39,8 @@ Pendant la lecture, fermez la fenêtre MPV pour revenir à la fenêtre YouTube.
 Comportement cible pour Flatpak/Flathub :
 
 - MPV doit être installé côté hôte via Flatpak (`io.mpv.Mpv`)
-- `yt-dlp` est embarqué dans l’application (inclus au build Flatpak)
+- `yt-dlp` est embarqué dans l'application (inclus au build Flatpak)
+- Le script SponsorBlock est embarqué dans l'application
 
 ---
 
@@ -100,7 +104,7 @@ WebKitGTK (interface YouTube)
         │
         ├── yt-dlp (embarqué dans pOpcOrn)
         │
-        └── MPV (outil externe)
+        └── MPV (outil externe, via IPC socket)
 ```
 
 ---
@@ -112,6 +116,7 @@ WebKitGTK (interface YouTube)
 | Interface | Python + GTK4 + WebKitGTK |
 | Lecteur | MPV (Flatpak) |
 | Résolution flux | yt-dlp (embarqué dans pOpcOrn) |
+| SponsorBlock | mpv_sponsorblock (embarqué dans pOpcOrn) |
 | Cookies | WebKitGTK stockage local |
 | Packaging | Flatpak |
 | Distribution | GitHub Pages |
@@ -133,19 +138,25 @@ WebKitGTK (interface YouTube)
 - Cookies gérés par WebKitGTK
 - `cookies.sqlite` reste persistant pour conserver la session YouTube
 - `cookies.txt` est exporté temporairement pour MPV puis supprimé en fin de lecture
+- `resume.json` stocke la position de reprise par URL (300 entrées, 30 jours max)
+- `history.json` stocke l'historique des vidéos jouées (300 entrées, 90 jours max)
 - Aucune transmission à un service tiers
 - Aucun serveur backend
 
 ---
 
-## Qualité et fenêtre MPV
+## Réglages
 
-Depuis l’icône `⚙` de l’application:
+Depuis l'icône `⚙` de l'application :
 
 - Qualité max cible (2160 / 1440 / 1080 / 720 / 480)
-- Priorité de sélection (plus haute / plus basse)
 - Mode de lecture MPV (fenêtre / plein écran)
 - Taille fenêtre MPV (%), active uniquement en mode fenêtré
+- SponsorBlock : active/désactive le saut automatique des segments sponsorisés
+
+Depuis l'icône `🕐` :
+
+- Historique des vidéos jouées avec reprise directe
 
 ---
 
