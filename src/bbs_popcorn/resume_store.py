@@ -50,9 +50,7 @@ class ResumeStore:
     def _purge(self):
         now = time.time()
         cutoff = now - _MAX_AGE_SECONDS
-        # Supprimer les entrees expirees
         self._data = {k: v for k, v in self._data.items() if v.get("ts", 0) >= cutoff}
-        # Supprimer les plus anciennes si > MAX_ENTRIES
         if len(self._data) > _MAX_ENTRIES:
             oldest_first = sorted(self._data, key=lambda k: self._data[k].get("ts", 0))
             for k in oldest_first[: len(self._data) - _MAX_ENTRIES]:

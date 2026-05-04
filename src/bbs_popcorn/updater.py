@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 import json
@@ -56,7 +57,6 @@ class Updater:
     # ----------------------------
     @staticmethod
     def mpv_available() -> bool:
-        # Popcorn targets MPV from Flathub (host side).
         cmd = ["flatpak", "info", "io.mpv.Mpv"]
         result = Updater.run_host(cmd, quiet=True)
         return result.returncode == 0
@@ -87,15 +87,10 @@ class Updater:
         window_scale_percent: int = 80,
         start_pos: float = None,
         ipc_socket_path: str = None,
-        sponsorblock_enabled: bool = False,
-        sponsorblock_script_path: str = None,
     ):
         run_args = ["flatpak", "run"]
         if cookies_path:
-            # Allow MPV Flatpak to read exported cookies from this app data path.
             run_args.append(f"--filesystem={cookies_path}:ro")
-        if sponsorblock_enabled and sponsorblock_script_path:
-            run_args.append(f"--filesystem={sponsorblock_script_path}:ro")
 
         if quality_target not in Updater.QUALITY_TARGETS:
             quality_target = "1080"
@@ -106,7 +101,6 @@ class Updater:
                 f"bestaudio[acodec^=mp4a]/best[height<={quality_target}]"
             )
         else:
-            # Prefer AVC/H264 by default for smoother playback on more machines.
             ytdl_format = (
                 f"bestvideo[height<={quality_target}][vcodec^=avc1]+"
                 f"bestaudio/best[height<={quality_target}]"
@@ -124,6 +118,7 @@ class Updater:
             "--ontop=yes",
             "--title=BBS pOpcOrn - ${media-title}",
             "--volume=100",
+            "--msg-level=osd/libass=no",
         ]
         cmd.extend(profile_flags)
         if window_mode == "fullscreen":
@@ -138,8 +133,6 @@ class Updater:
             cmd.append(f"--start={start_pos:.1f}")
         if ipc_socket_path:
             cmd.append(f"--input-ipc-server={ipc_socket_path}")
-        if sponsorblock_enabled and sponsorblock_script_path:
-            cmd.append(f"--script={sponsorblock_script_path}")
         cmd.append(url)
         return Updater.popen_host(cmd)
 
@@ -150,8 +143,6 @@ class Updater:
         quality_target: str = "1080",
         window_mode: str = "windowed",
         window_scale_percent: int = 80,
-        sponsorblock_enabled: bool = False,
-        sponsorblock_script_path: str = None,
     ):
         """Launch MPV in idle mode with an IPC socket for pre-warming."""
         if quality_target not in Updater.QUALITY_TARGETS:
@@ -165,8 +156,6 @@ class Updater:
         run_args = ["flatpak", "run"]
         if cookies_path:
             run_args.append(f"--filesystem={cookies_path}:ro")
-        if sponsorblock_enabled and sponsorblock_script_path:
-            run_args.append(f"--filesystem={sponsorblock_script_path}:ro")
 
         cmd = run_args + [
             "io.mpv.Mpv",
@@ -181,6 +170,7 @@ class Updater:
             "--ontop=yes",
             "--title=BBS pOpcOrn - ${media-title}",
             "--volume=100",
+            "--msg-level=osd/libass=no",
         ]
         if window_mode == "fullscreen":
             cmd.append("--fullscreen=yes")
@@ -190,8 +180,6 @@ class Updater:
             cmd.append(f"--window-scale={scale:.2f}")
         if cookies_path:
             cmd.append(f"--cookies-file={cookies_path}")
-        if sponsorblock_enabled and sponsorblock_script_path:
-            cmd.append(f"--script={sponsorblock_script_path}")
 
         return Updater.popen_host(cmd)
 
@@ -204,7 +192,6 @@ class Updater:
 
     @staticmethod
     def download(url: str):
-        # yt-dlp is expected inside this Flatpak runtime.
         return subprocess.run(["yt-dlp", url])
 
     # ----------------------------
@@ -253,9 +240,7 @@ class Updater:
 
 
 class HostUpdater:
-    """
-    Minimal compatibility shim for existing app hook.
-    """
+    """Minimal compatibility shim for existing app hook."""
 
     def __init__(self, on_done=None):
         self.on_done = on_done

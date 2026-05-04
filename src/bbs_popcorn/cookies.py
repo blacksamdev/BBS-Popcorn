@@ -83,7 +83,6 @@ class CookieExporter:
             )
             if cur.fetchone():
                 return schema
-
         return None
 
     def export(self) -> bool:

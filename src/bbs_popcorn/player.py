@@ -12,6 +12,7 @@ from bbs_popcorn.resume_store import ResumeStore
 from bbs_popcorn.updater import Updater
 
 _MPV_IPC_SOCKET = "/tmp/bbs-popcorn-mpv.sock"
+_MPV_SCRIPTS_DIR = os.path.expanduser("~/.var/app/io.mpv.Mpv/config/mpv/scripts")
 
 
 class MpvPlayer:
@@ -49,7 +50,7 @@ class MpvPlayer:
         self._tracking = False
 
     # ─────────────────────────────
-    # cookies (optional)
+    # cookies
     # ─────────────────────────────
 
     def get_cookies(self):
@@ -57,6 +58,22 @@ class MpvPlayer:
         if exporter.export():
             return self.cookie_export_path
         return None
+
+    def cleanup(self):
+        """Appelé à la fermeture de l'app : termine le process idle et supprime le socket."""
+        with self._play_lock:
+            proc = self._mpv_idle_proc
+            self._mpv_idle_proc = None
+        if proc and proc.poll() is None:
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+        try:
+            os.remove(_MPV_IPC_SOCKET)
+        except OSError:
+            pass
+        log_event("Player cleanup effectue.")
 
     def prefetch_cookies(self):
         """Export cookies in background so they are ready on next play."""
@@ -76,9 +93,12 @@ class MpvPlayer:
 
     def _do_prewarm(self):
         # Terminate any lingering idle process and remove stale socket.
-        if self._mpv_idle_proc and self._mpv_idle_proc.poll() is None:
+        with self._play_lock:
+            old_proc = self._mpv_idle_proc
+            self._mpv_idle_proc = None
+        if old_proc and old_proc.poll() is None:
             try:
-                self._mpv_idle_proc.terminate()
+                old_proc.terminate()
             except Exception:
                 pass
         try:
@@ -86,23 +106,44 @@ class MpvPlayer:
         except OSError:
             pass
 
-        self._mpv_idle_proc = Updater.start_idle(
+        proc = Updater.start_idle(
             _MPV_IPC_SOCKET,
             cookies_path=self.cookie_export_path,
             quality_target=self.quality_target,
             window_mode=self.window_mode,
             window_scale_percent=self.window_scale_percent,
-            sponsorblock_enabled=self.sponsorblock_enabled,
-            sponsorblock_script_path=self.sponsorblock_script_path,
         )
+        with self._play_lock:
+            self._mpv_idle_proc = proc
+
         # Wait for MPV to create the IPC socket (typically < 1 s).
         deadline = time.monotonic() + 4.0
         while time.monotonic() < deadline:
             if os.path.exists(_MPV_IPC_SOCKET):
-                log_event("MPV pre-warms: IPC socket pret.", level="debug")
+                log_event("MPV pre-warm: IPC socket pret.", level="debug")
+                threading.Thread(target=self._watchdog, daemon=True).start()
                 return
             time.sleep(0.05)
         log_event("MPV pre-warm: socket absent apres delai.", level="debug")
+
+    def _watchdog(self):
+        """Surveille le process MPV idle et le relance s'il meurt inopinement."""
+        while True:
+            time.sleep(10)
+            if self._is_playing:
+                continue
+            with self._play_lock:
+                proc = self._mpv_idle_proc
+            if proc is None:
+                return
+            if proc.poll() is not None:
+                log_event("MPV idle process termine, relance...", level="debug")
+                self.prewarm_mpv()
+                return  # le nouveau prewarm lancera son propre watchdog
+
+    # ─────────────────────────────
+    # IPC
+    # ─────────────────────────────
 
     def _ipc_loadfile(self, url: str, start_pos: float = None) -> bool:
         """Send a loadfile command to the pre-warmed MPV via IPC socket."""
@@ -161,6 +202,64 @@ class MpvPlayer:
             time.sleep(5.0)
         self._tracking = False
 
+    def _wait_with_timeout(self, process, timeout: int = 43200) -> int:
+        """Attend la fin du process avec un timeout en secondes (défaut 12h).
+        Protège contre un MPV vraiment gelé sans tuer les longues vidéos."""
+        result = [None]
+
+        def _waiter():
+            result[0] = process.wait()
+
+        t = threading.Thread(target=_waiter, daemon=True)
+        t.start()
+        t.join(timeout=timeout)
+        if t.is_alive():
+            log_event(f"MPV timeout apres {timeout}s, terminaison forcee.", level="debug")
+            try:
+                process.terminate()
+            except Exception:
+                pass
+            t.join(timeout=5)
+            return process.returncode if process.returncode is not None else -1
+        return result[0]
+
+    # ─────────────────────────────
+    # SponsorBlock
+    # ─────────────────────────────
+
+    def _sync_sponsorblock(self):
+        """Installe ou supprime les fichiers SponsorBlock dans le dossier scripts de MPV."""
+        if not self.sponsorblock_script_path:
+            return
+        import shutil
+        src_dir = os.path.dirname(self.sponsorblock_script_path)
+
+        if self.sponsorblock_enabled:
+            try:
+                os.makedirs(_MPV_SCRIPTS_DIR, exist_ok=True)
+                shared_dst = os.path.join(_MPV_SCRIPTS_DIR, "sponsorblock_shared")
+                os.makedirs(shared_dst, exist_ok=True)
+                shutil.copy2(self.sponsorblock_script_path,
+                             os.path.join(_MPV_SCRIPTS_DIR, "sponsorblock.lua"))
+                src_shared = os.path.join(src_dir, "sponsorblock_shared")
+                for fname in ("main.lua", "sponsorblock.py"):
+                    shutil.copy2(os.path.join(src_shared, fname),
+                                 os.path.join(shared_dst, fname))
+                log_event("SponsorBlock: fichiers installes dans scripts MPV.", level="debug")
+            except Exception as exc:
+                log_event(f"SponsorBlock: echec installation: {exc}", level="debug")
+        else:
+            try:
+                lua = os.path.join(_MPV_SCRIPTS_DIR, "sponsorblock.lua")
+                shared = os.path.join(_MPV_SCRIPTS_DIR, "sponsorblock_shared")
+                if os.path.exists(lua):
+                    os.remove(lua)
+                if os.path.isdir(shared):
+                    shutil.rmtree(shared)
+                log_event("SponsorBlock: fichiers supprimes des scripts MPV.", level="debug")
+            except Exception as exc:
+                log_event(f"SponsorBlock: echec suppression: {exc}", level="debug")
+
     # ─────────────────────────────
     # url normalization
     # ─────────────────────────────
@@ -168,7 +267,10 @@ class MpvPlayer:
     def _prepare_url(self, url: str) -> str:
         match = re.search(r"[?&]list=([a-zA-Z0-9_-]+)", url)
         if match:
-            return f"https://www.youtube.com/playlist?list={match.group(1)}"
+            playlist_id = match.group(1)
+            # Ignorer les mixes/radios YouTube (RD...) — non lisibles par yt-dlp
+            if not playlist_id.startswith("RD"):
+                return f"https://www.youtube.com/playlist?list={playlist_id}"
         return url
 
     # ─────────────────────────────
@@ -196,6 +298,7 @@ class MpvPlayer:
         self.window_mode = window_mode
         self.window_scale_percent = window_scale_percent
         self.sponsorblock_enabled = sponsorblock_enabled
+        self._sync_sponsorblock()
         if not self._is_playing:
             self.prewarm_mpv()
 
@@ -212,7 +315,11 @@ class MpvPlayer:
             # Use pre-exported cookies if ready, otherwise export now
             if self._cookie_prefetch_thread and self._cookie_prefetch_thread.is_alive():
                 self._cookie_prefetch_thread.join()
-            cookies_path = self.get_cookies() if not os.path.exists(self.cookie_export_path) else self.cookie_export_path
+            cookies_path = (
+                self.cookie_export_path
+                if os.path.exists(self.cookie_export_path)
+                else self.get_cookies()
+            )
             if not cookies_path:
                 print("[BBS Popcorn] Cookie export failed, aborting MPV launch.")
                 GLib.idle_add(self._hide_loading_only)
@@ -220,14 +327,18 @@ class MpvPlayer:
 
             # Use pre-warmed MPV via IPC if available, otherwise spawn fresh.
             start_pos = self._resume.get(url)
-            ipc_ready = (
-                os.path.exists(_MPV_IPC_SOCKET)
-                and self._mpv_idle_proc is not None
-                and self._mpv_idle_proc.poll() is None
-            )
-            if ipc_ready and self._ipc_loadfile(url, start_pos=start_pos):
-                process = self._mpv_idle_proc
-                self._mpv_idle_proc = None
+            with self._play_lock:
+                ipc_ready = (
+                    os.path.exists(_MPV_IPC_SOCKET)
+                    and self._mpv_idle_proc is not None
+                    and self._mpv_idle_proc.poll() is None
+                )
+                idle_proc = self._mpv_idle_proc if ipc_ready else None
+                if ipc_ready:
+                    self._mpv_idle_proc = None
+
+            if idle_proc and self._ipc_loadfile(url, start_pos=start_pos):
+                process = idle_proc
                 # Give MPV a moment to process the loadfile command before polling.
                 time.sleep(0.3)
             else:
@@ -256,7 +367,7 @@ class MpvPlayer:
             threading.Thread(
                 target=self._track_position, args=(url,), daemon=True
             ).start()
-            return_code = process.wait()
+            return_code = self._wait_with_timeout(process)
             self._tracking = False
             self._resume.set(url, self._tracked_pos, self._tracked_duration)
             if return_code != 0:
@@ -329,8 +440,6 @@ class MpvPlayer:
             window_scale_percent=self.window_scale_percent,
             start_pos=start_pos,
             ipc_socket_path=ipc_socket_path,
-            sponsorblock_enabled=self.sponsorblock_enabled,
-            sponsorblock_script_path=self.sponsorblock_script_path,
         )
 
     def _retry_with_fallback(self, url: str, cookies_path: str) -> bool:
@@ -348,7 +457,7 @@ class MpvPlayer:
         threading.Thread(
             target=self._track_position, args=(url,), daemon=True
         ).start()
-        return_code = process.wait()
+        return_code = self._wait_with_timeout(process)
         self._tracking = False
         self._resume.set(url, self._tracked_pos, self._tracked_duration)
         if return_code != 0:
