@@ -4,7 +4,9 @@
 
 **YouTube via MPV**
 
-<img src="assets/gif.gif" width="400">
+<p align="center">
+  <video src="assets/mon-animation.mp4" width="600" autoplay loop muted playsinline>
+</p>
 
 BBS pOpcOrn est un client YouTube Linux basé sur WebKitGTK.
 Il affiche l'interface YouTube dans une fenêtre GTK et délègue la lecture vidéo à MPV via des flux résolus par yt-dlp.
