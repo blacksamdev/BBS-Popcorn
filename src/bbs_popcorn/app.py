@@ -1,5 +1,6 @@
 import os
 import json
+import threading
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -10,6 +11,7 @@ from gi.repository import Gtk, WebKit, GLib
 from bbs_popcorn.history_store import HistoryStore
 from bbs_popcorn.logging_utils import log_event
 from bbs_popcorn.player import MpvPlayer
+from bbs_popcorn.updater import Updater
 
 
 YOUTUBE_URL = "https://www.youtube.com"
@@ -257,6 +259,20 @@ class YtMpvApp(Gtk.Application):
         self.player.prefetch_cookies()
         self.player.prewarm_mpv()
         self.btn_history.set_popover(self._build_history_popover())
+        threading.Thread(target=self._check_dependencies, daemon=True).start()
+
+    def _check_dependencies(self):
+        """Vérifie les dépendances en arrière-plan et avertit via la status bar."""
+        status = Updater.status()
+        missing = []
+        if not status.get("mpv", False):
+            missing.append("MPV Flatpak manquant : flatpak install flathub io.mpv.Mpv")
+        if not status.get("yt-dlp", False):
+            missing.append("yt-dlp manquant dans l'application")
+        if missing:
+            msg = " | ".join(missing)
+            log_event(f"Dependances manquantes: {msg}")
+            GLib.idle_add(self._set_status, msg)
 
     def _harden_cookie_paths(self):
         state_dir = os.path.dirname(self.cookie_db_path)
