@@ -61,7 +61,11 @@ class MpvPlayer:
         return None
 
     def cleanup(self):
-        """Appelé à la fermeture de l'app : termine le process idle et supprime le socket."""
+        """Fermeture propre : IPC quit → terminate wrapper → pkill fallback."""
+        # 1. Demander à MPV idle de quitter via IPC
+        self._ipc_command("quit")
+        time.sleep(0.3)
+        # 2. Terminer le wrapper flatpak-spawn
         with self._play_lock:
             proc = self._mpv_idle_proc
             self._mpv_idle_proc = None
@@ -70,6 +74,8 @@ class MpvPlayer:
                 proc.terminate()
             except Exception:
                 pass
+        # 3. Fallback pkill côté host — tue tous les mpv-bin avec le titre pOpcOrn
+        Updater.kill_all_mpv()
         try:
             os.remove(_MPV_IPC_SOCKET)
         except OSError:
@@ -77,7 +83,7 @@ class MpvPlayer:
         log_event("Player cleanup effectue.")
 
     def prefetch_cookies(self):
-        """Export cookies in background so they are ready on next play."""
+        """Export cookies en arrière-plan."""
         if self._cookie_prefetch_thread and self._cookie_prefetch_thread.is_alive():
             return
         self._cookie_prefetch_thread = threading.Thread(
@@ -86,14 +92,13 @@ class MpvPlayer:
         self._cookie_prefetch_thread.start()
 
     def prewarm_mpv(self):
-        """Launch MPV in idle mode so the Flatpak runtime is loaded and ready."""
+        """Lance MPV en mode idle pour pré-charger le runtime Flatpak."""
         if self._prewarm_thread and self._prewarm_thread.is_alive():
             return
         self._prewarm_thread = threading.Thread(target=self._do_prewarm, daemon=True)
         self._prewarm_thread.start()
 
     def _do_prewarm(self):
-        # Terminate any lingering idle process and remove stale socket.
         with self._play_lock:
             old_proc = self._mpv_idle_proc
             self._mpv_idle_proc = None
@@ -117,7 +122,6 @@ class MpvPlayer:
         with self._play_lock:
             self._mpv_idle_proc = proc
 
-        # Wait for MPV to create the IPC socket (typically < 1 s).
         deadline = time.monotonic() + 4.0
         while time.monotonic() < deadline:
             if os.path.exists(_MPV_IPC_SOCKET):
@@ -128,7 +132,7 @@ class MpvPlayer:
         log_event("MPV pre-warm: socket absent apres delai.", level="debug")
 
     def _watchdog(self):
-        """Surveille le process MPV idle et le relance s'il meurt inopinement."""
+        """Relance le prewarm si MPV idle meurt inopinement."""
         while True:
             time.sleep(10)
             if self._is_playing:
@@ -140,14 +144,24 @@ class MpvPlayer:
             if proc.poll() is not None:
                 log_event("MPV idle process termine, relance...", level="debug")
                 self.prewarm_mpv()
-                return  # le nouveau prewarm lancera son propre watchdog
+                return
 
     # ─────────────────────────────
     # IPC
     # ─────────────────────────────
 
+    def _ipc_command(self, *args):
+        try:
+            sock = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
+            sock.settimeout(1.0)
+            sock.connect(_MPV_IPC_SOCKET)
+            msg = json.dumps({"command": list(args)}).encode() + b"\n"
+            sock.sendall(msg)
+            sock.close()
+        except Exception:
+            pass
+
     def _ipc_loadfile(self, url: str, start_pos: float = None) -> bool:
-        """Send a loadfile command to the pre-warmed MPV via IPC socket."""
         try:
             sock = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
             sock.settimeout(1.0)
@@ -167,7 +181,6 @@ class MpvPlayer:
             return False
 
     def _ipc_get_property(self, prop: str):
-        """Query a single MPV property via IPC. Returns parsed value or None."""
         try:
             sock = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
             sock.settimeout(1.0)
@@ -189,7 +202,6 @@ class MpvPlayer:
         return None
 
     def _track_position(self, url: str):
-        """Poll time-pos and duration every 5 s while MPV is playing."""
         self._tracking = True
         self._tracked_pos = 0.0
         self._tracked_duration = None
@@ -200,12 +212,15 @@ class MpvPlayer:
                 self._tracked_pos = float(pos)
             if isinstance(dur, (int, float)) and dur > 0:
                 self._tracked_duration = float(dur)
+            # Mise à jour du titre dans l'historique via media-title
+            title = self._ipc_get_property("media-title")
+            if isinstance(title, str) and title and hasattr(self, '_on_media_title'):
+                GLib.idle_add(self._on_media_title, url, title)
             time.sleep(5.0)
         self._tracking = False
 
     def _wait_with_timeout(self, process, timeout: int = 43200) -> int:
-        """Attend la fin du process avec un timeout en secondes (défaut 12h).
-        Protège contre un MPV vraiment gelé sans tuer les longues vidéos."""
+        """Attend MPV avec un timeout de 12h max."""
         result = [None]
 
         def _waiter():
@@ -229,7 +244,6 @@ class MpvPlayer:
     # ─────────────────────────────
 
     def _sync_sponsorblock(self):
-        """Installe ou supprime les fichiers SponsorBlock dans le dossier scripts de MPV."""
         if not self.sponsorblock_script_path:
             return
         src_dir = os.path.dirname(self.sponsorblock_script_path)
@@ -245,7 +259,7 @@ class MpvPlayer:
                 for fname in ("main.lua", "sponsorblock.py"):
                     shutil.copy2(os.path.join(src_shared, fname),
                                  os.path.join(shared_dst, fname))
-                log_event("SponsorBlock: fichiers installes dans scripts MPV.", level="debug")
+                log_event("SponsorBlock: fichiers installes.", level="debug")
             except Exception as exc:
                 log_event(f"SponsorBlock: echec installation: {exc}", level="debug")
         else:
@@ -256,12 +270,23 @@ class MpvPlayer:
                     os.remove(lua)
                 if os.path.isdir(shared):
                     shutil.rmtree(shared)
-                log_event("SponsorBlock: fichiers supprimes des scripts MPV.", level="debug")
+                log_event("SponsorBlock: fichiers supprimes.", level="debug")
             except Exception as exc:
                 log_event(f"SponsorBlock: echec suppression: {exc}", level="debug")
 
+    # ─────────────────────────────
+    # url normalization
+    # ─────────────────────────────
+
+    def _prepare_url(self, url: str) -> str:
+        match = re.search(r"[?&]list=([a-zA-Z0-9_-]+)", url)
+        if match:
+            playlist_id = match.group(1)
+            if not playlist_id.startswith("RD"):
+                return f"https://www.youtube.com/playlist?list={playlist_id}"
+        return url
+
     def _get_monitor_offset(self) -> tuple[int, int]:
-        """Retourne les coordonnées (x, y) du moniteur où se trouve la fenêtre GTK."""
         try:
             surface = self.win.get_surface()
             if surface is None:
@@ -276,19 +301,6 @@ class MpvPlayer:
             return (0, 0)
 
     # ─────────────────────────────
-    # url normalization
-    # ─────────────────────────────
-
-    def _prepare_url(self, url: str) -> str:
-        match = re.search(r"[?&]list=([a-zA-Z0-9_-]+)", url)
-        if match:
-            playlist_id = match.group(1)
-            # Ignorer les mixes/radios YouTube (RD...) — non lisibles par yt-dlp
-            if not playlist_id.startswith("RD"):
-                return f"https://www.youtube.com/playlist?list={playlist_id}"
-        return url
-
-    # ─────────────────────────────
     # public
     # ─────────────────────────────
 
@@ -300,7 +312,6 @@ class MpvPlayer:
                 return
             self._is_playing = True
         self._status("Preparation de la lecture...")
-        # Récupérer l'offset moniteur ici, dans le thread GTK principal.
         monitor_offset = self._get_monitor_offset()
         threading.Thread(target=self._launch, args=(url, monitor_offset), daemon=True).start()
 
@@ -329,7 +340,6 @@ class MpvPlayer:
             GLib.idle_add(self._show_loading)
 
             url = self._prepare_url(url)
-            # Use pre-exported cookies if ready, otherwise export now
             if self._cookie_prefetch_thread and self._cookie_prefetch_thread.is_alive():
                 self._cookie_prefetch_thread.join()
             cookies_path = (
@@ -342,7 +352,6 @@ class MpvPlayer:
                 GLib.idle_add(self._hide_loading_only)
                 return
 
-            # Use pre-warmed MPV via IPC if available, otherwise spawn fresh.
             start_pos = self._resume.get(url)
             with self._play_lock:
                 ipc_ready = (
@@ -356,7 +365,6 @@ class MpvPlayer:
 
             if idle_proc and self._ipc_loadfile(url, start_pos=start_pos):
                 process = idle_proc
-                # Give MPV a moment to process the loadfile command before polling.
                 time.sleep(0.3)
             else:
                 process = self._start_process(
@@ -462,7 +470,10 @@ class MpvPlayer:
             monitor_offset=monitor_offset,
         )
 
-    def _retry_with_fallback(self, url: str, cookies_path: str, monitor_offset: tuple[int, int] = (0, 0)) -> bool:
+    def _retry_with_fallback(
+        self, url: str, cookies_path: str,
+        monitor_offset: tuple[int, int] = (0, 0)
+    ) -> bool:
         self._status("Format compatible: nouvelle tentative...")
         process = self._start_process(
             url, cookies_path,

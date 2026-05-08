@@ -48,19 +48,16 @@ class Updater:
         return result.returncode == 0
 
     @staticmethod
-    def play(
-        url: str,
-        cookies_path: str = None,
-        playback_profile: str = "gaming",
-        use_fallback_format: bool = False
-    ):
-        process = Updater.start_play(
-            url,
-            cookies_path=cookies_path,
-            playback_profile=playback_profile,
-            use_fallback_format=use_fallback_format
-        )
-        return process.wait()
+    def kill_all_mpv():
+        """Tue les process MPV de pOpcOrn côté host, ciblés par le socket IPC."""
+        try:
+            # Cible uniquement les mpv lancés avec notre socket — très spécifique
+            Updater.run_host(
+                ["pkill", "-f", "input-ipc-server=/tmp/bbs-popcorn-mpv.sock"],
+                quiet=True
+            )
+        except Exception:
+            pass
 
     @staticmethod
     def start_play(
@@ -133,7 +130,7 @@ class Updater:
         window_mode: str = "windowed",
         window_scale_percent: int = 80,
     ):
-        """Launch MPV in idle mode with an IPC socket for pre-warming."""
+        """Lance MPV en mode idle avec un socket IPC pour le pre-warming."""
         if quality_target not in Updater.QUALITY_TARGETS:
             quality_target = "1080"
 

@@ -1,6 +1,6 @@
 import os
-import json
 import threading
+import json
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -8,10 +8,9 @@ gi.require_version("WebKit", "6.0")
 
 from gi.repository import Gtk, WebKit, GLib
 
-from bbs_popcorn.history_store import HistoryStore
 from bbs_popcorn.logging_utils import log_event
+from bbs_popcorn.history_store import HistoryStore
 from bbs_popcorn.player import MpvPlayer
-from bbs_popcorn.updater import Updater
 
 
 YOUTUBE_URL = "https://www.youtube.com"
@@ -22,7 +21,6 @@ def format_timestamp(seconds: float) -> str:
     mins = int(seconds // 60)
     secs = int(seconds % 60)
     return f"{mins}:{secs:02d}"
-
 
 SETTINGS_FILE = os.path.join(
     GLib.get_user_config_dir(),
@@ -44,6 +42,7 @@ def load_settings() -> dict:
         "window_mode": "windowed",
         "window_scale_percent": 80,
         "sponsorblock_enabled": False,
+        "webkit_mode": "gourmand",
     }
 
     if os.path.exists(SETTINGS_FILE):
@@ -74,10 +73,29 @@ def load_settings() -> dict:
 
 def save_settings(settings: dict):
     os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
+
     with open(SETTINGS_FILE, "w") as f:
         json.dump(settings, f)
 
 
+def detect_system_theme() -> str:
+    try:
+        result = subprocess.run(
+            [
+                "gsettings",
+                "get",
+                "org.gnome.desktop.interface",
+                "color-scheme"
+            ],
+            capture_output=True,
+            text=True
+        )
+        if "dark" in result.stdout.lower():
+            return "dark"
+    except Exception:
+        pass
+
+    return "light"
 
 
 # ─────────────────────────────
@@ -121,9 +139,6 @@ class YtMpvApp(Gtk.Application):
         self.url_bar.set_can_focus(True)
         self.url_bar.connect("activate", self._on_url_bar_activate)
 
-        self.btn_history = Gtk.MenuButton(label="🕐")
-        self.btn_history.set_tooltip_text("Historique")
-
         btn_settings = Gtk.MenuButton(label="⚙")
         btn_settings.set_popover(self._build_settings_popover())
 
@@ -132,7 +147,6 @@ class YtMpvApp(Gtk.Application):
         navbar.append(btn_reload)
         navbar.append(btn_home)
         navbar.append(self.url_bar)
-        navbar.append(self.btn_history)
         navbar.append(btn_settings)
 
         # ───────── WebKit bridge ─────────
@@ -158,17 +172,23 @@ class YtMpvApp(Gtk.Application):
 
         cookie_manager.set_accept_policy(WebKit.CookieAcceptPolicy.NO_THIRD_PARTY)
 
-        settings = self.webview.get_settings()
-        settings.set_enable_javascript(True)
-        settings.set_enable_media(True)
-        settings.set_enable_html5_local_storage(True)
-        settings.set_media_playback_requires_user_gesture(False)
-
-        settings.set_user_agent(
+        ws = self.webview.get_settings()
+        ws.set_enable_javascript(True)
+        ws.set_enable_media(True)
+        ws.set_enable_html5_local_storage(True)
+        ws.set_media_playback_requires_user_gesture(False)
+        ws.set_user_agent(
             "Mozilla/5.0 (X11; Linux x86_64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/120 Safari/537.36"
         )
+        # Toujours désactivé (inutile dans les deux modes)
+        ws.set_enable_media_stream(False)
+        try:
+            ws.set_enable_encrypted_media(False)
+        except Exception:
+            pass
+        self._apply_webkit_mode(save=False)
 
         self.webview.set_vexpand(True)
         self.webview.load_uri(YOUTUBE_URL)
@@ -202,10 +222,6 @@ class YtMpvApp(Gtk.Application):
                 background-color: rgba(34, 38, 43, 0.92);
                 border-radius: 12px;
                 padding: 18px 22px;
-            }
-            .loading-overlay label {
-                color: #d7dde5;
-                font-size: 1.05em;
             }
             .status-bar {
                 background-color: rgba(34, 38, 43, 0.85);
@@ -255,24 +271,36 @@ class YtMpvApp(Gtk.Application):
         self.player.on_hide_loading = self._hide_loading_overlay
         self.player.on_show_notice = self._show_loading_notice
         self.player.on_status_change = self._set_status
+        self.player._on_media_title = self._update_history_title
         self._apply_player_settings()
         self.player.prefetch_cookies()
         self.player.prewarm_mpv()
-        self.btn_history.set_popover(self._build_history_popover())
-        threading.Thread(target=self._check_dependencies, daemon=True).start()
 
-    def _check_dependencies(self):
-        """Vérifie les dépendances en arrière-plan et avertit via la status bar."""
-        status = Updater.status()
-        missing = []
-        if not status.get("mpv", False):
-            missing.append("MPV Flatpak manquant : flatpak install flathub io.mpv.Mpv")
-        if not status.get("yt-dlp", False):
-            missing.append("yt-dlp manquant dans l'application")
-        if missing:
-            msg = " | ".join(missing)
-            log_event(f"Dependances manquantes: {msg}")
-            GLib.idle_add(self._set_status, msg)
+    def _apply_webkit_mode(self, save: bool = True):
+        """Applique les réglages WebKit selon le mode éco/gourmand."""
+        mode = self.settings.get("webkit_mode", "gourmand")
+        ws = self.webview.get_settings()
+        eco = (mode == "eco")
+        try:
+            ws.set_enable_webgl(not eco)
+        except Exception:
+            pass
+        try:
+            ws.set_enable_webaudio(not eco)
+        except Exception:
+            pass
+        try:
+            policy = (
+                WebKit.HardwareAccelerationPolicy.ON_DEMAND if eco
+                else WebKit.HardwareAccelerationPolicy.ALWAYS
+            )
+            ws.set_hardware_acceleration_policy(policy)
+        except Exception:
+            pass
+        # Ré-injecter l'intercepteur pour mettre à jour le flag ECO_MODE
+        self.inject_interceptor()
+        if save:
+            save_settings(self.settings)
 
     def _harden_cookie_paths(self):
         state_dir = os.path.dirname(self.cookie_db_path)
@@ -301,10 +329,7 @@ class YtMpvApp(Gtk.Application):
     def on_decide_policy(self, webview, decision, decision_type):
         if decision_type != WebKit.PolicyDecisionType.NAVIGATION_ACTION:
             return False
-        action = decision.get_navigation_action()
-        if not action:
-            return False
-        request = action.get_request()
+        request = decision.get_request()
         if not request:
             return False
         uri = request.get_uri() or ""
@@ -327,102 +352,106 @@ class YtMpvApp(Gtk.Application):
     # ───────── JS injection ─────────
 
     def inject_interceptor(self):
-        js = """
-        (function () {
-            if (window.__bbspopcornInjected) return;
+        eco_mode = "true" if self.settings.get("webkit_mode") == "eco" else "false"
+        js = f"""
+        (function () {{
+            if (window.__bbspopcornInjected) {{
+                window.__bbspopcornInjected = false;
+            }}
             window.__bbspopcornInjected = true;
+            const ECO_MODE = {eco_mode};
 
-            function disableSpeechApis() {
-                try {
-                    if (window.speechSynthesis) {
+            function disableSpeechApis() {{
+                try {{
+                    if (window.speechSynthesis) {{
                         window.speechSynthesis.cancel();
-                        window.speechSynthesis.speak = function () {};
-                    }
-                } catch (_) {}
-
-                try {
+                        window.speechSynthesis.speak = function () {{}};
+                    }}
+                }} catch (_) {{}}
+                try {{
                     window.SpeechRecognition = undefined;
                     window.webkitSpeechRecognition = undefined;
-                } catch (_) {}
-            }
+                }} catch (_) {{}}
+            }}
 
-            function forceShortsAudio() {
+            function forceShortsAudio() {{
+                if (ECO_MODE) return;
                 if (!location.pathname.includes('/shorts/')) return;
 
-                const enableAudio = () => {
+                const enableAudio = () => {{
                     const video = document.querySelector('video');
                     if (!video) return;
                     video.muted = false;
                     if (video.volume === 0) video.volume = 1;
-                    if (video.paused) {
-                        video.play().catch(() => {});
-                    }
-                };
+                    if (video.paused) {{
+                        video.play().catch(() => {{}});
+                    }}
+                }};
 
-                const muteSecondaryMedia = () => {
+                const muteSecondaryMedia = () => {{
                     const mainVideo = document.querySelector('video');
                     const mediaNodes = document.querySelectorAll('audio, video');
-                    for (const node of mediaNodes) {
-                        if (node !== mainVideo) {
+                    for (const node of mediaNodes) {{
+                        if (node !== mainVideo) {{
                             node.muted = true;
                             node.volume = 0;
-                        }
-                    }
-                };
+                        }}
+                    }}
+                }};
 
                 enableAudio();
                 muteSecondaryMedia();
-                setTimeout(() => {
+                setTimeout(() => {{
                     enableAudio();
                     muteSecondaryMedia();
-                }, 300);
+                }}, 300);
 
-                const observer = new MutationObserver(() => {
+                const observer = new MutationObserver(() => {{
                     enableAudio();
                     muteSecondaryMedia();
-                });
-                observer.observe(document.body, {childList: true, subtree: true});
-
-                document.addEventListener("yt-navigate-finish", () => {
+                }});
+                observer.observe(document.body, {{childList: true, subtree: true}});
+                document.addEventListener("yt-navigate-finish", () => {{
                     enableAudio();
                     muteSecondaryMedia();
-                }, true);
-            }
+                }}, true);
+            }}
 
-            function intercept(e) {
+            function intercept(e) {{
                 const a = e.target.closest('a[href]');
                 if (!a) return;
-
                 const href = a.href;
+
+                // Shorts → MPV en mode éco
+                if (ECO_MODE && href.includes("youtube.com/shorts/")) {{
+                    const m = href.match(/[/]shorts[/]([a-zA-Z0-9_-]+)/);
+                    if (m) {{
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.webkit.messageHandlers.bbspopcorn.postMessage(
+                            'https://www.youtube.com/watch?v=' + m[1]
+                        );
+                    }}
+                    return;
+                }}
 
                 if (
                     href.includes("youtube.com/watch") ||
                     href.includes("youtube.com/playlist")
-                ) {
+                ) {{
                     e.preventDefault();
                     e.stopPropagation();
                     window.webkit.messageHandlers.bbspopcorn.postMessage(href);
-                }
-            }
+                }}
+            }}
 
             document.removeEventListener('click', intercept, true);
             document.addEventListener('click', intercept, true);
             disableSpeechApis();
             forceShortsAudio();
-        })();
+        }})();
         """
-
-        self.webview.evaluate_javascript(
-            js,
-            -1,
-            None,
-            None,
-            None,
-            None,
-            None
-        )
-
-    # ───────── Messages JS ─────────
+        self.webview.evaluate_javascript(js, -1, None, None, None, None, None)
 
     def on_js_message(self, manager, message):
         url = message.to_string()
@@ -451,10 +480,14 @@ class YtMpvApp(Gtk.Application):
         else:
             self.webview.load_uri(url)
 
+    def _update_history_title(self, url: str, title: str):
+        """Met à jour le titre dans l'historique quand MPV l'a résolu."""
+        if title and url:
+            self.history.add(url, title=title)
+        return False
+
     def _on_shutdown(self, _win):
         self.player.cleanup()
-
-    # ───────── Loading overlay ─────────
 
     def _show_loading_overlay(self):
         self.loading_label.set_text("Chargement de la video...")
@@ -483,88 +516,9 @@ class YtMpvApp(Gtk.Application):
         self.status_label.set_text(message)
         return False
 
-    # ───────── History popover ─────────
-
-    def _build_history_popover(self):
-        popover = Gtk.Popover()
-        self._history_popover = popover
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        box.set_margin_top(8)
-        box.set_margin_bottom(8)
-        box.set_margin_start(10)
-        box.set_margin_end(10)
-
-        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        title_label = Gtk.Label(label="Historique")
-        title_label.set_hexpand(True)
-        title_label.set_xalign(0)
-        header.append(title_label)
-        btn_clear = Gtk.Button(label="Effacer")
-        btn_clear.connect("clicked", self._on_history_clear)
-        header.append(btn_clear)
-        box.append(header)
-
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_min_content_height(200)
-        scrolled.set_max_content_height(400)
-        scrolled.set_min_content_width(360)
-        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-
-        self._history_list_box = Gtk.ListBox()
-        self._history_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
-        self._refresh_history_list()
-        scrolled.set_child(self._history_list_box)
-        box.append(scrolled)
-
-        popover.set_child(box)
-        popover.connect("show", lambda _: self._refresh_history_list())
-        return popover
-
-    def _refresh_history_list(self):
-        while child := self._history_list_box.get_first_child():
-            self._history_list_box.remove(child)
-
-        entries = self.history.entries()
-        if not entries:
-            lbl = Gtk.Label(label="Aucun historique.")
-            lbl.set_margin_top(8)
-            lbl.set_margin_bottom(8)
-            self._history_list_box.append(lbl)
-            return
-
-        for entry in entries:
-            url = entry.get("url", "")
-            title = entry.get("title", url)
-            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-            row_box.set_margin_top(4)
-            row_box.set_margin_bottom(4)
-            lbl = Gtk.Label(label=title[:60] + ("…" if len(title) > 60 else ""))
-            lbl.set_hexpand(True)
-            lbl.set_xalign(0)
-            lbl.set_tooltip_text(url)
-            row_box.append(lbl)
-            btn = Gtk.Button(label="▶")
-            btn.connect("clicked", self._on_history_play, url)
-            row_box.append(btn)
-            self._history_list_box.append(row_box)
-
-    def _on_history_play(self, _btn, url):
-        self._history_popover.popdown()
-        resume_pos = self.player._resume.get(url)
-        if resume_pos:
-            self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
-        self.player.play(url)
-
-    def _on_history_clear(self, _btn):
-        self.history.clear()
-        self._refresh_history_list()
-
-    # ───────── Settings popover ─────────
-
     def _build_settings_popover(self):
         self.pending_settings = dict(self.settings)
         popover = Gtk.Popover()
-        self._settings_popover = popover
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_margin_top(8)
         box.set_margin_bottom(8)
@@ -617,6 +571,19 @@ class YtMpvApp(Gtk.Application):
         scale_row.append(self.scale_spin)
         box.append(scale_row)
 
+        webkit_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        webkit_label = Gtk.Label(label="Mode WebKit:")
+        webkit_label.set_xalign(0)
+        webkit_label.set_hexpand(True)
+        webkit_row.append(webkit_label)
+        self.webkit_mode_combo = Gtk.ComboBoxText()
+        self.webkit_mode_combo.append("gourmand", "🎬 Gourmand")
+        self.webkit_mode_combo.append("eco", "🌿 Éco")
+        self.webkit_mode_combo.set_active_id(self.pending_settings.get("webkit_mode", "gourmand"))
+        self.webkit_mode_combo.connect("changed", self._on_settings_changed)
+        webkit_row.append(self.webkit_mode_combo)
+        box.append(webkit_row)
+
         sponsorblock_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         sponsorblock_label = Gtk.Label(label="SponsorBlock:")
         sponsorblock_label.set_xalign(0)
@@ -665,6 +632,7 @@ class YtMpvApp(Gtk.Application):
     def _on_settings_changed(self, *_args):
         self.pending_settings["quality_target"] = self.quality_combo.get_active_text() or "1080"
         self.pending_settings["window_mode"] = self.mode_combo.get_active_id() or "windowed"
+        self.pending_settings["webkit_mode"] = self.webkit_mode_combo.get_active_id() or "gourmand"
         self._sync_scale_sensitivity()
         self._sync_save_button_state()
 
@@ -672,6 +640,7 @@ class YtMpvApp(Gtk.Application):
         self.settings.update(self.pending_settings)
         save_settings(self.settings)
         self._apply_player_settings()
+        self._apply_webkit_mode(save=False)
         self._sync_save_button_state()
         if hasattr(self, "_settings_popover"):
             self._settings_popover.popdown()
@@ -694,6 +663,7 @@ class YtMpvApp(Gtk.Application):
     def _sync_save_button_state(self):
         has_changes = any(
             self.settings.get(key) != self.pending_settings.get(key)
-            for key in ("quality_target", "window_mode", "window_scale_percent", "sponsorblock_enabled")
+            for key in ("quality_target", "window_mode", "window_scale_percent",
+                        "sponsorblock_enabled", "webkit_mode")
         )
         self.save_button.set_sensitive(has_changes)
