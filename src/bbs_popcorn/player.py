@@ -238,16 +238,24 @@ class MpvPlayer:
 
     def _fetch_title_async(self, url: str):
         """Récupère le titre via yt-dlp en arrière-plan et notifie via _on_media_title."""
+        import subprocess
+        import json as _json
         try:
-            import subprocess
+            log_event(f"fetch_title_async: start for {url}", level="debug")
             result = subprocess.run(
-                ["yt-dlp", "--no-playlist", "--print", "title", url],
-                capture_output=True, text=True, timeout=15
+                ["yt-dlp", "--no-playlist", "--skip-download",
+                 "--dump-single-json", url],
+                capture_output=True, text=True, timeout=30
             )
-            if result.returncode == 0:
-                title = result.stdout.strip()
+            log_event(f"fetch_title_async: returncode={result.returncode}", level="debug")
+            if result.returncode == 0 and result.stdout.strip():
+                info = _json.loads(result.stdout)
+                title = info.get("title", "").strip()
+                log_event(f"fetch_title_async: title='{title}'", level="debug")
                 if title and hasattr(self, '_on_media_title'):
                     GLib.idle_add(self._on_media_title, url, title)
+            else:
+                log_event(f"fetch_title_async: stderr={result.stderr[:200]}", level="debug")
         except Exception as exc:
             log_event(f"fetch_title_async error: {exc}", level="debug")
 
