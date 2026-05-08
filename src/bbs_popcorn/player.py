@@ -1,4 +1,3 @@
-import re
 import shutil
 import time
 import threading
@@ -199,20 +198,40 @@ class MpvPlayer:
     def _ipc_get_property(self, prop: str):
         try:
             sock = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
-            sock.settimeout(1.0)
+            sock.settimeout(1.5)
             sock.connect(_MPV_IPC_SOCKET)
-            msg = json.dumps({"command": ["get_property", prop]}).encode() + b"\n"
+            msg = json.dumps({
+                "command": ["get_property", prop],
+                "request_id": 1
+            }).encode() + b"\n"
             sock.sendall(msg)
             buf = b""
-            while b"\n" not in buf:
-                chunk = sock.recv(1024)
-                if not chunk:
+            deadline = time.monotonic() + 1.5
+            while time.monotonic() < deadline:
+                try:
+                    chunk = sock.recv(4096)
+                    if not chunk:
+                        break
+                    buf += chunk
+                    for line in buf.split(b"\n"):
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            resp = json.loads(line)
+                            # Ignorer les événements MPV asynchrones
+                            if "event" in resp:
+                                continue
+                            if resp.get("request_id") == 1:
+                                sock.close()
+                                if resp.get("error") == "success":
+                                    return resp.get("data")
+                                return None
+                        except Exception:
+                            continue
+                except OSError:
                     break
-                buf += chunk
             sock.close()
-            resp = json.loads(buf.split(b"\n")[0])
-            if resp.get("error") == "success":
-                return resp.get("data")
         except Exception:
             pass
         return None
@@ -221,6 +240,21 @@ class MpvPlayer:
         self._tracking = True
         self._tracked_pos = 0.0
         self._tracked_duration = None
+        last_title = ""
+
+        # Tenter de récupérer le titre rapidement au démarrage
+        for _ in range(10):
+            if not self._tracking or not self._is_playing:
+                break
+            title = self._ipc_get_property("media-title")
+            if isinstance(title, str) and title:
+                last_title = title
+                if hasattr(self, '_on_media_title'):
+                    GLib.idle_add(self._on_media_title, url, title)
+                break
+            time.sleep(0.5)
+
+        # Puis polling toutes les 5s
         while self._tracking and self._is_playing:
             pos = self._ipc_get_property("time-pos")
             dur = self._ipc_get_property("duration")
@@ -228,10 +262,11 @@ class MpvPlayer:
                 self._tracked_pos = float(pos)
             if isinstance(dur, (int, float)) and dur > 0:
                 self._tracked_duration = float(dur)
-            # Mise à jour du titre dans l'historique via media-title
             title = self._ipc_get_property("media-title")
-            if isinstance(title, str) and title and hasattr(self, '_on_media_title'):
-                GLib.idle_add(self._on_media_title, url, title)
+            if isinstance(title, str) and title and title != last_title:
+                last_title = title
+                if hasattr(self, '_on_media_title'):
+                    GLib.idle_add(self._on_media_title, url, title)
             time.sleep(5.0)
         self._tracking = False
 
@@ -295,11 +330,38 @@ class MpvPlayer:
     # ─────────────────────────────
 
     def _prepare_url(self, url: str) -> str:
-        match = re.search(r"[?&]list=([a-zA-Z0-9_-]+)", url)
-        if match:
-            playlist_id = match.group(1)
-            if not playlist_id.startswith("RD"):
-                return f"https://www.youtube.com/playlist?list={playlist_id}"
+        """Normalise une URL YouTube en supprimant les paramètres de tracking.
+        Conserve uniquement v= (vidéo) et list= (playlist).
+        """
+        from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+
+        try:
+            parsed = urlparse(url)
+            params = parse_qs(parsed.query, keep_blank_values=False)
+
+            # youtu.be/VIDEO_ID → watch?v=VIDEO_ID
+            if "youtu.be" in parsed.netloc:
+                video_id = parsed.path.lstrip("/").split("?")[0]
+                if video_id:
+                    return f"https://www.youtube.com/watch?v={video_id}"
+                return url
+
+            # Playlist (hors mixes YouTube RD...)
+            if "list" in params:
+                playlist_id = params["list"][0]
+                if not playlist_id.startswith("RD"):
+                    return f"https://www.youtube.com/playlist?list={playlist_id}"
+
+            # Vidéo simple — ne garder que v=
+            if "v" in params:
+                clean = urlencode({"v": params["v"][0]})
+                return urlunparse(parsed._replace(
+                    netloc="www.youtube.com", path="/watch", query=clean
+                ))
+
+        except Exception:
+            pass
+
         return url
 
     def _get_monitor_offset(self) -> tuple[int, int]:
