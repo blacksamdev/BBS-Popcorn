@@ -237,13 +237,14 @@ class MpvPlayer:
         return None
 
     def _fetch_title_async(self, url: str):
-        """Récupère le titre via yt-dlp en arrière-plan et notifie via _on_media_title."""
+        """Récupère le titre via yt-dlp (host) en arrière-plan."""
         import subprocess
         import json as _json
         try:
             log_event(f"fetch_title_async: start for {url}", level="debug")
             result = subprocess.run(
-                ["yt-dlp", "--no-playlist", "--skip-download",
+                ["flatpak-spawn", "--host",
+                 "yt-dlp", "--no-playlist", "--skip-download",
                  "--dump-single-json", url],
                 capture_output=True, text=True, timeout=30
             )
