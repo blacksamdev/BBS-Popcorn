@@ -565,7 +565,6 @@ class YtMpvApp(Gtk.Application):
 
         # Qualité
         quality_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        Gtk.Label(label="Qualite max:")  # unused label trick — use properly:
         quality_row.append(Gtk.Label(label="Qualite max:"))
         self.quality_combo = Gtk.ComboBoxText()
         for q in ["2160", "1440", "1080", "720", "480"]:

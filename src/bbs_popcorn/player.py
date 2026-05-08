@@ -236,25 +236,32 @@ class MpvPlayer:
             pass
         return None
 
+    def _fetch_title_async(self, url: str):
+        """Récupère le titre via yt-dlp en arrière-plan et notifie via _on_media_title."""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["yt-dlp", "--no-playlist", "--print", "title", url],
+                capture_output=True, text=True, timeout=15
+            )
+            if result.returncode == 0:
+                title = result.stdout.strip()
+                if title and hasattr(self, '_on_media_title'):
+                    GLib.idle_add(self._on_media_title, url, title)
+        except Exception as exc:
+            log_event(f"fetch_title_async error: {exc}", level="debug")
+
     def _track_position(self, url: str):
         self._tracking = True
         self._tracked_pos = 0.0
         self._tracked_duration = None
-        last_title = ""
 
-        # Tenter de récupérer le titre rapidement au démarrage
-        for _ in range(10):
-            if not self._tracking or not self._is_playing:
-                break
-            title = self._ipc_get_property("media-title")
-            if isinstance(title, str) and title:
-                last_title = title
-                if hasattr(self, '_on_media_title'):
-                    GLib.idle_add(self._on_media_title, url, title)
-                break
-            time.sleep(0.5)
+        # Titre via yt-dlp en parallèle (non bloquant)
+        threading.Thread(
+            target=self._fetch_title_async, args=(url,), daemon=True
+        ).start()
 
-        # Puis polling toutes les 5s
+        # Polling position/durée toutes les 5s via IPC
         while self._tracking and self._is_playing:
             pos = self._ipc_get_property("time-pos")
             dur = self._ipc_get_property("duration")
@@ -262,11 +269,6 @@ class MpvPlayer:
                 self._tracked_pos = float(pos)
             if isinstance(dur, (int, float)) and dur > 0:
                 self._tracked_duration = float(dur)
-            title = self._ipc_get_property("media-title")
-            if isinstance(title, str) and title and title != last_title:
-                last_title = title
-                if hasattr(self, '_on_media_title'):
-                    GLib.idle_add(self._on_media_title, url, title)
             time.sleep(5.0)
         self._tracking = False
 
