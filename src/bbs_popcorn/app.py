@@ -188,7 +188,7 @@ class YtMpvApp(Gtk.Application):
         eco = (mode == "eco")
         ws.set_enable_webgl(not eco)
         ws.set_enable_webaudio(not eco)
-        ws.set_hardware_acceleration_policy(WebKit.HardwareAccelerationPolicy.ON_DEMAND if eco else WebKit.HardwareAccelerationPolicy.ALWAYS)
+        ws.set_hardware_acceleration_policy(WebKit.HardwareAccelerationPolicy.NEVER if eco else WebKit.HardwareAccelerationPolicy.ALWAYS)
         self.inject_interceptor()
         if save: save_settings(self.settings)
 
