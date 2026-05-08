@@ -72,8 +72,15 @@ class MpvPlayer:
         if proc and proc.poll() is None:
             try:
                 proc.terminate()
+                proc.wait(timeout=2)
             except Exception:
                 pass
+            # Fallback SIGKILL si terminate insuffisant
+            if proc.poll() is None:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
         # 3. Fallback pkill côté host — tue tous les mpv-bin avec le titre pOpcOrn
         Updater.kill_all_mpv()
         try:
@@ -105,8 +112,17 @@ class MpvPlayer:
         if old_proc and old_proc.poll() is None:
             try:
                 old_proc.terminate()
+                old_proc.wait(timeout=2)
             except Exception:
                 pass
+            if old_proc.poll() is None:
+                try:
+                    old_proc.kill()
+                except Exception:
+                    pass
+        # Tuer tout MPV orphelin côté host avant de lancer le nouveau idle
+        Updater.kill_all_mpv()
+        time.sleep(0.2)
         try:
             os.remove(_MPV_IPC_SOCKET)
         except OSError:
