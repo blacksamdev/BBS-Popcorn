@@ -423,10 +423,13 @@ class YtMpvApp(Gtk.Application):
 
     def on_js_message(self, manager, message):
         url = message.to_string()
+        # Normaliser l'URL avant de stocker en historique
+        # pour correspondre à ce que _track_position reçoit
+        normalized = self.player._prepare_url(url)
         print(f"[BBS Popcorn] Play: {url}")
         log_event(f"Play request: {url}")
-        self.history.add(url, title=self.webview.get_title() or "")
-        resume_pos = self.player._resume.get(url)
+        self.history.add(normalized, title=self.webview.get_title() or "")
+        resume_pos = self.player._resume.get(normalized)
         if resume_pos:
             self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
         self.player.play(url)
@@ -439,9 +442,10 @@ class YtMpvApp(Gtk.Application):
             url = "https://" + url
         if ("youtube.com/watch" in url or "youtube.com/playlist" in url
                 or "youtu.be/" in url):
+            normalized = self.player._prepare_url(url)
             log_event(f"Play request (url bar): {url}")
-            self.history.add(url, title=self.webview.get_title() or "")
-            resume_pos = self.player._resume.get(url)
+            self.history.add(normalized, title=self.webview.get_title() or "")
+            resume_pos = self.player._resume.get(normalized)
             if resume_pos:
                 self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
             self.player.play(url)
@@ -450,6 +454,7 @@ class YtMpvApp(Gtk.Application):
 
     def _on_shutdown(self, _win):
         self.player.cleanup()
+        self.quit()
 
     # ───────── Loading overlay ─────────
 
