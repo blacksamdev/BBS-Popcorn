@@ -22,7 +22,7 @@
       "name": "yt-dlp",
       "buildsystem": "simple",
       "build-commands": [
-        "install -Dm755 yt-dlp.sh /app/bin/yt-dlp"
+        "pip3 install --no-build-isolation --prefix=/app ."
       ],
       "sources": [
         {
