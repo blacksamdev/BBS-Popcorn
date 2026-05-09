@@ -44,6 +44,7 @@ class MpvPlayer:
         self._cookie_prefetch_thread = None
         self._mpv_idle_proc = None
         self._prewarm_thread = None
+        self._ytdlp_proc = None
         self._resume = ResumeStore()
         self._tracked_pos: float = 0.0
         self._tracked_duration: float | None = None
@@ -80,7 +81,14 @@ class MpvPlayer:
                     proc.kill()
                 except Exception:
                     pass
-        # 3. Fallback pkill côté host — tue tous les mpv-bin avec le titre pOpcOrn
+        # 3. Tuer le subprocess yt-dlp de fetch_title s'il tourne encore
+        ytdlp = self._ytdlp_proc
+        if ytdlp and ytdlp.poll() is None:
+            try:
+                ytdlp.terminate()
+            except Exception:
+                pass
+        # 4. Fallback pkill côté host — tue tous les mpv-bin avec le titre pOpcOrn
         Updater.kill_all_mpv()
         try:
             os.remove(_MPV_IPC_SOCKET)
@@ -242,22 +250,34 @@ class MpvPlayer:
         import json as _json
         try:
             log_event(f"fetch_title_async: start for {url}", level="debug")
-            result = subprocess.run(
+            proc = subprocess.Popen(
                 ["yt-dlp", "--no-playlist", "--skip-download",
                  "--dump-single-json", url],
-                capture_output=True, text=True, timeout=30
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
-            log_event(f"fetch_title_async: returncode={result.returncode}", level="debug")
-            if result.returncode == 0 and result.stdout.strip():
-                info = _json.loads(result.stdout)
+            self._ytdlp_proc = proc
+            try:
+                stdout, stderr = proc.communicate(timeout=30)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+                log_event("fetch_title_async: timeout", level="debug")
+                return
+            finally:
+                self._ytdlp_proc = None
+
+            log_event(f"fetch_title_async: returncode={proc.returncode}", level="debug")
+            if proc.returncode == 0 and stdout.strip():
+                info = _json.loads(stdout.decode())
                 title = info.get("title", "").strip()
                 log_event(f"fetch_title_async: title='{title}'", level="debug")
                 if title and hasattr(self, '_on_media_title'):
                     GLib.idle_add(self._on_media_title, url, title)
             else:
-                log_event(f"fetch_title_async: stderr={result.stderr[:200]}", level="debug")
+                log_event(f"fetch_title_async: stderr={stderr.decode()[:200]}", level="debug")
         except Exception as exc:
             log_event(f"fetch_title_async error: {exc}", level="debug")
+            self._ytdlp_proc = None
 
     def _track_position(self, url: str):
         self._tracking = True
