@@ -22,13 +22,13 @@
       "name": "yt-dlp",
       "buildsystem": "simple",
       "build-commands": [
-        "pip3 install --no-build-isolation --prefix=/app ."
+        "install -Dm755 yt-dlp /app/bin/yt-dlp"
       ],
       "sources": [
         {
-          "type": "git",
-          "url": "https://github.com/yt-dlp/yt-dlp.git",
-          "tag": "2026.03.17"
+          "type": "file",
+          "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.03.17/yt-dlp",
+          "sha256": "3bda0968a01cde70d26720653003b28553c71be14dcb2e5f4c24e9921fdad745"
         }
       ]
     },
