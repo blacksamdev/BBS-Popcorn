@@ -2,76 +2,45 @@
 
 🇫🇷 [Version française](README.md)
 
-**YouTube via MPV**
-
-<img src="assets/gif.gif" width="600">
-
-BBS pOpcOrn is a Linux YouTube client based on WebKitGTK.
-It displays the YouTube interface in a GTK window and delegates video playback to MPV via streams resolved by yt-dlp.
-
-The goal is to provide a lightweight interface without a full browser, relying on system and user components.
+Lightweight YouTube client for Linux — WebKitGTK interface, playback via MPV.
 
 ---
 
-## How it works
+## Quick Install (Flatpak)
 
-- YouTube interface via WebKitGTK
-- Browsing and search via the official YouTube web interface
-- Video playback via MPV (external process)
-- Stream resolution via yt-dlp
-- Support for playlists and individual videos
-- Automatic playback position resume
-- Watch history (300 entries, 90 days)
-- SponsorBlock integration (toggle in settings)
-- Cookie storage via WebKitGTK (local only)
-
-During playback, close the MPV window to return to the YouTube window.
-
----
-
-## Requirements
-
-- Linux
-- Flatpak
-
----
-
-## Dependencies
-
-Target behaviour for Flatpak:
-
-- MPV must be installed on the host via Flatpak (`io.mpv.Mpv`)
-- `yt-dlp` is bundled inside the application (included in the Flatpak build)
-- The SponsorBlock script is bundled inside the application
-
----
-
-## Installing dependencies
-
-### MPV (Flatpak recommended)
+### 1. Install MPV
 
 ```bash
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 flatpak install -y flathub io.mpv.Mpv
 ```
 
-### yt-dlp
+### 2. Add the BBS pOpcOrn repository
 
-No user installation required: `yt-dlp` is provided inside the pOpcOrn Flatpak.
-
----
-
-## Installation
-
-Add the Flatpak repository:
 ```bash
-flatpak remote-add --if-not-exists --from bbs-popcorn https://blacksamdev.github.io/BBS-Popcorn/bbs-popcorn.flatpakrepo
+flatpak remote-add --if-not-exists --from bbs-popcorn \
+  https://blacksamdev.github.io/BBS-Popcorn/bbs-popcorn.flatpakrepo
 ```
 
-Install:
+### 3. Install
+
 ```bash
 flatpak install bbs-popcorn io.github.blacksamdev.Popcorn
 ```
+
+The application will then appear in your desktop menu.
+
+---
+
+## Usage
+
+- **Click on a video** in the YouTube interface to launch it in MPV
+- **Quit MPV** : press `q` or close the window — the YouTube window comes back automatically
+- **History** : `🕐` button — resumes playback where you left off
+- **Settings** : `⚙` button — quality, window size, SponsorBlock, eco mode
+
+> **Note:** a few seconds delay is normal when launching each video,
+> while the stream is being resolved and playback starts.
 
 ---
 
@@ -83,91 +52,86 @@ flatpak update io.github.blacksamdev.Popcorn
 
 ---
 
-## Build from source
+## GitHub Repository
+
+[github.com/blacksamdev/BBS-Popcorn](https://github.com/blacksamdev/BBS-Popcorn)
+
+---
+---
+
+## Technical Documentation
+
+### Installation without Flatpak
+
+System dependencies: `mpv`, `yt-dlp`, `python-gobject`, `webkit2gtk-4.1`
 
 ```bash
 git clone https://github.com/blacksamdev/BBS-Popcorn.git
 cd BBS-Popcorn
+make install-deps   # checks and installs Python dependencies
+make install-user   # installs in ~/.local
+```
 
+System-wide installation:
+```bash
+sudo make install
+```
+
+> **Xorg:** if WebKit displays graphical artifacts, launch with:
+> ```bash
+> WEBKIT_DISABLE_DMABUF_RENDERER=1 bbs-popcorn
+> ```
+
+---
+
+### Build from source (Flatpak)
+
+```bash
+git clone https://github.com/blacksamdev/BBS-Popcorn.git
+cd BBS-Popcorn
 sudo flatpak-builder --install --force-clean build-dir io.github.blacksamdev.Popcorn.json
-
 flatpak run io.github.blacksamdev.Popcorn
 ```
 
 ---
 
-## Architecture
+### Debug logs
+
+```bash
+BBS_POPCORN_DEBUG=1 flatpak run io.github.blacksamdev.Popcorn
+tail -f ~/.var/app/io.github.blacksamdev.Popcorn/data/bbs-popcorn/app.log
+```
+
+---
+
+### Console messages (harmless)
+
+These messages may appear in the terminal but do not indicate any malfunction:
+
+| Message | Cause | Impact |
+|---|---|---|
+| `Cannot load libcuda.so.1` | No NVIDIA GPU | None — hardware decoding uses VAAPI |
+| `Late SEI is not implemented` | FFmpeg warning on some h264 streams | None — video plays normally |
+| `[ipc_0] Write error (Broken pipe)` | MPV closes the IPC connection while loading | None — expected behavior |
+| `libEGL warning: MESA-LOADER...` | WebKit/Mesa on some GPU configurations | None — fallback renderer active |
+
+---
+
+### Architecture
 
 ```
 WebKitGTK (YouTube interface)
-        │
-        ├── user interactions
-        │
-        ├── yt-dlp (bundled inside pOpcOrn)
-        │
-        └── MPV (external tool, via IPC socket)
+    │
+    ├── Click on a video
+    │
+    ├── yt-dlp  →  stream resolution (~2-5s)
+    │
+    └── MPV  →  video playback
 ```
 
 ---
 
-## Tech stack
+### License
 
-| Component | Technology |
-|---|---|
-| Interface | Python + GTK4 + WebKitGTK |
-| Player | MPV (Flatpak) |
-| Stream resolution | yt-dlp (bundled inside pOpcOrn) |
-| SponsorBlock | mpv_sponsorblock (bundled inside pOpcOrn) |
-| Cookies | WebKitGTK local storage |
-| Packaging | Flatpak |
-| Distribution | GitHub Pages |
-
----
-
-## Legal notice
-
-- Unofficial third-party software, not affiliated with YouTube or Google
-- Use is subject to YouTube's Terms of Service
-- The user is responsible for their own usage
-- Third-party components (MPV, yt-dlp) are subject to their own licences
-
----
-
-## Data & privacy
-
-- All data stays local
-- Cookies managed by WebKitGTK
-- `cookies.sqlite` persists to maintain the YouTube session
-- `cookies.txt` is temporarily exported for MPV then deleted at the end of playback
-- `resume.json` stores playback position per URL (300 entries, 30 days max)
-- `history.json` stores watch history (300 entries, 90 days max)
-- No data transmitted to any third party
-- No backend server
-
----
-
-## Settings
-
-From the `⚙` icon in the application:
-
-- Maximum target quality (2160 / 1440 / 1080 / 720 / 480)
-- MPV playback mode (windowed / fullscreen)
-- MPV window size (%), active in windowed mode only
-- SponsorBlock: enable/disable automatic skipping of sponsored segments
-
-From the `🕐` icon:
-
-- Watch history with direct resume playback
-
----
-
-## Project
-
-Developed by **blacksamdev** — in tribute to Samuel Bellamy 🏴‍☠️,
+GPL-3.0 — developed by **blacksamdev** — in tribute to Samuel Bellamy 🏴‍☠️,
 the Prince of Pirates, captain of the Whydah.
-
----
-
-## Licence
-
-GPL-3.0

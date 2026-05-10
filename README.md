@@ -2,97 +2,45 @@
 
 🇬🇧 [English version](README.en.md)
 
-**YouTube via MPV**
-
-BBS pOpcOrn est un client YouTube Linux basé sur WebKitGTK.
-Il affiche l'interface YouTube dans une fenêtre GTK et délègue la lecture vidéo à MPV via des flux résolus par yt-dlp.
-
-L'objectif est de proposer une interface légère sans navigateur complet, en s'appuyant sur des composants système et utilisateurs.
+Client YouTube léger pour Linux — interface WebKitGTK, lecture via MPV.
 
 ---
 
-## Fonctionnement
+## Installation rapide (Flatpak)
 
-- Interface YouTube via WebKitGTK
-- Navigation et recherche via l'interface web officielle
-- Lecture vidéo via MPV (process externe)
-- Résolution des flux via yt-dlp
-- Support des playlists et vidéos individuelles
-- Reprise automatique de la position de lecture
-- Historique des vidéos jouées (300 entrées, 90 jours)
-- SponsorBlock intégré (activable dans les réglages)
-- Stockage des cookies via WebKitGTK (local uniquement)
-
-Pendant la lecture, fermez la fenêtre MPV pour revenir à la fenêtre YouTube.
-
----
-
-## Prérequis
-
-- Linux
-- Flatpak (recommandé) ou installation native
-
----
-
-## Dépendances
-
-Comportement cible pour Flatpak :
-
-- MPV doit être installé côté hôte via Flatpak (`io.mpv.Mpv`)
-- `yt-dlp` est embarqué dans l'application (inclus au build Flatpak)
-- Le script SponsorBlock est embarqué dans l'application
-
----
-
-## Installation des dépendances
-
-### MPV (Flatpak recommandé)
+### 1. Installer MPV
 
 ```bash
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 flatpak install -y flathub io.mpv.Mpv
 ```
 
-### yt-dlp
+### 2. Ajouter le dépôt BBS pOpcOrn
 
-Aucune installation utilisateur nécessaire : `yt-dlp` est fourni dans le Flatpak pOpcOrn.
-
----
-
-## Installation via Flatpak
-
-Ajouter le dépôt :
 ```bash
-flatpak remote-add --if-not-exists --from bbs-popcorn https://blacksamdev.github.io/BBS-Popcorn/bbs-popcorn.flatpakrepo
+flatpak remote-add --if-not-exists --from bbs-popcorn \
+  https://blacksamdev.github.io/BBS-Popcorn/bbs-popcorn.flatpakrepo
 ```
 
-Installer :
+### 3. Installer
+
 ```bash
 flatpak install bbs-popcorn io.github.blacksamdev.Popcorn
 ```
 
+L'application apparaît ensuite dans le menu de votre bureau.
+
 ---
 
-## Installation native (sans Flatpak)
+## Utilisation
 
-Dépendances système : `mpv`, `yt-dlp`, `python-gobject`, `webkit2gtk-4.1`
+- **Cliquer sur une vidéo** dans l'interface YouTube pour la lancer dans MPV
+- **Quitter MPV** : touche `q` ou fermer la fenêtre — la fenêtre YouTube revient automatiquement
+- **Historique** : bouton `🕐` — reprend la lecture là où vous vous étiez arrêté
+- **Réglages** : bouton `⚙` — qualité, taille de fenêtre, SponsorBlock, mode éco
 
-```bash
-git clone https://github.com/blacksamdev/BBS-Popcorn.git
-cd BBS-Popcorn
-make install-deps   # vérifie/installe les dépendances Python
-make install-user   # installe dans ~/.local
-```
-
-Pour une installation système :
-```bash
-sudo make install
-```
-
-> **Note Xorg :** si WebKit affiche des artefacts graphiques, lancez l'application avec :
-> ```bash
-> WEBKIT_DISABLE_DMABUF_RENDERER=1 bbs-popcorn
-> ```
+> **Note :** un délai de quelques secondes est normal au lancement de chaque vidéo,
+> le temps que le flux soit résolu et que la lecture démarre.
 
 ---
 
@@ -104,92 +52,86 @@ flatpak update io.github.blacksamdev.Popcorn
 
 ---
 
-## Build depuis les sources (Flatpak)
+## Dépôt GitHub
+
+[github.com/blacksamdev/BBS-Popcorn](https://github.com/blacksamdev/BBS-Popcorn)
+
+---
+---
+
+## Documentation technique
+
+### Installation sans Flatpak
+
+Dépendances système : `mpv`, `yt-dlp`, `python-gobject`, `webkit2gtk-4.1`
 
 ```bash
 git clone https://github.com/blacksamdev/BBS-Popcorn.git
 cd BBS-Popcorn
+make install-deps   # vérifie et installe les dépendances Python
+make install-user   # installe dans ~/.local
+```
 
+Installation système :
+```bash
+sudo make install
+```
+
+> **Xorg :** si WebKit affiche des artefacts graphiques, lancer avec :
+> ```bash
+> WEBKIT_DISABLE_DMABUF_RENDERER=1 bbs-popcorn
+> ```
+
+---
+
+### Build depuis les sources (Flatpak)
+
+```bash
+git clone https://github.com/blacksamdev/BBS-Popcorn.git
+cd BBS-Popcorn
 sudo flatpak-builder --install --force-clean build-dir io.github.blacksamdev.Popcorn.json
-
 flatpak run io.github.blacksamdev.Popcorn
 ```
 
 ---
 
-## Architecture
+### Logs de debug
+
+```bash
+BBS_POPCORN_DEBUG=1 flatpak run io.github.blacksamdev.Popcorn
+tail -f ~/.var/app/io.github.blacksamdev.Popcorn/data/bbs-popcorn/app.log
+```
+
+---
+
+### Messages dans la console (normaux)
+
+Ces messages apparaissent dans le terminal mais n'indiquent aucun dysfonctionnement :
+
+| Message | Cause | Impact |
+|---|---|---|
+| `Cannot load libcuda.so.1` | Pas de GPU NVIDIA | Aucun — décodage matériel via VAAPI |
+| `Late SEI is not implemented` | Avertissement FFmpeg sur certains flux h264 | Aucun — vidéo normale |
+| `[ipc_0] Write error (Broken pipe)` | MPV ferme la connexion IPC en chargeant | Aucun — comportement normal |
+| `libEGL warning: MESA-LOADER...` | WebKit/Mesa sur certaines configurations GPU | Aucun — rendu de secours actif |
+
+---
+
+### Architecture
 
 ```
 WebKitGTK (interface YouTube)
-        │
-        ├── interactions utilisateur
-        │
-        ├── yt-dlp (embarqué dans pOpcOrn)
-        │
-        └── MPV (outil externe, via IPC socket)
+    │
+    ├── Clic sur une vidéo
+    │
+    ├── yt-dlp  →  résolution du flux (~2-5s)
+    │
+    └── MPV  →  lecture vidéo
 ```
 
 ---
 
-## Stack technique
+### Licence
 
-| Composant | Technologie |
-|---|---|
-| Interface | Python + GTK4 + WebKitGTK |
-| Lecteur | MPV (Flatpak ou natif) |
-| Résolution flux | yt-dlp (embarqué dans pOpcOrn) |
-| SponsorBlock | mpv_sponsorblock (embarqué dans pOpcOrn) |
-| Cookies | WebKitGTK stockage local |
-| Packaging | Flatpak |
-| Distribution | GitHub Pages |
-
----
-
-## Avertissement légal
-
-- Logiciel tiers non officiel, non affilié à YouTube ou Google
-- Utilisation soumise aux Conditions d'utilisation de YouTube
-- L'utilisateur est responsable de son usage
-- Les composants tiers (MPV, yt-dlp) sont soumis à leurs propres licences
-
----
-
-## Données et confidentialité
-
-- Toutes les données restent locales
-- Cookies gérés par WebKitGTK
-- `cookies.sqlite` reste persistant pour conserver la session YouTube
-- `cookies.txt` est exporté temporairement pour MPV puis supprimé en fin de lecture
-- `resume.json` stocke la position de reprise par URL (300 entrées, 30 jours max)
-- `history.json` stocke l'historique des vidéos jouées (300 entrées, 90 jours max)
-- Aucune transmission à un service tiers
-- Aucun serveur backend
-
----
-
-## Réglages
-
-Depuis l'icône `⚙` de l'application :
-
-- Qualité max cible (2160 / 1440 / 1080 / 720 / 480)
-- Mode de lecture MPV (fenêtre / plein écran)
-- Taille fenêtre MPV (%), active uniquement en mode fenêtré
-- SponsorBlock : active/désactive le saut automatique des segments sponsorisés
-- Mode WebKit : Normal (Shorts dans WebKit) ou Éco (tout dans MPV, WebGL désactivé)
-
-Depuis l'icône `🕐` :
-
-- Historique des vidéos jouées avec reprise directe
-
----
-
-## Projet
-
-Développé par **blacksamdev** — en hommage à Samuel Bellamy 🏴‍☠️,
+GPL-3.0 — développé par **blacksamdev** — en hommage à Samuel Bellamy 🏴‍☠️,
 le Prince des Pirates, capitaine du Whydah.
-
----
-
-## Licence
-
-GPL-3.0
