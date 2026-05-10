@@ -12,9 +12,11 @@ from bbs_popcorn.logging_utils import log_event
 from bbs_popcorn.resume_store import ResumeStore
 from bbs_popcorn.updater import Updater
 
-# XDG_RUNTIME_DIR est partagé entre sandbox Flatpak et host — /tmp ne l'est pas.
-_MPV_IPC_SOCKET = os.path.join(
-    GLib.get_user_runtime_dir(), "bbs-popcorn-mpv.sock"
+# Socket dans le répertoire de données de MPV Flatpak :
+# - io.mpv.Mpv a accès complet à son propre ~/.var/app/io.mpv.Mpv/
+# - pOpcOrn y accède via --filesystem=~/.var/app/io.mpv.Mpv dans le manifest
+_MPV_IPC_SOCKET = os.path.expanduser(
+    "~/.var/app/io.mpv.Mpv/bbs-popcorn-mpv.sock"
 )
 _MPV_SCRIPTS_DIR = os.path.expanduser("~/.var/app/io.mpv.Mpv/config/mpv/scripts")
 
