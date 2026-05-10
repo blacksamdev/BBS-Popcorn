@@ -191,23 +191,54 @@ class MpvPlayer:
             pass
 
     def _ipc_loadfile(self, url: str, start_pos: float = None) -> bool:
+        """Send a loadfile command to the pre-warmed MPV via IPC socket."""
         try:
             sock = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
-            sock.settimeout(1.0)
+            sock.settimeout(2.0)
             sock.connect(_MPV_IPC_SOCKET)
-            options = {}
+
+            # Options en string "key=val" — compatible toutes versions MPV
+            cmd_list = ["loadfile", url, "replace"]
             if start_pos and start_pos > 0:
-                options["start"] = f"{start_pos:.1f}"
-            cmd = ["loadfile", url, "replace"]
-            if options:
-                cmd.append(options)
-            msg = json.dumps({"command": cmd}).encode() + b"\n"
+                cmd_list.append(f"start={start_pos:.1f}")
+
+            msg = json.dumps({
+                "command": cmd_list,
+                "request_id": 42
+            }).encode() + b"\n"
             sock.sendall(msg)
+
+            # Vérifier que MPV a accepté la commande
+            buf = b""
+            deadline = time.monotonic() + 2.0
+            while time.monotonic() < deadline:
+                try:
+                    chunk = sock.recv(4096)
+                    if not chunk:
+                        break
+                    buf += chunk
+                    for line in buf.split(b"\n"):
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            resp = json.loads(line)
+                            if "event" in resp:
+                                continue
+                            if resp.get("request_id") == 42:
+                                sock.close()
+                                success = resp.get("error") == "success"
+                                if not success:
+                                    log_event(f"IPC loadfile erreur: {resp.get('error')}", level="debug")
+                                return success
+                        except Exception:
+                            continue
+                except OSError:
+                    break
             sock.close()
-            return True
         except Exception as exc:
             log_event(f"IPC loadfile echec: {exc}", level="debug")
-            return False
+        return False
 
     def _ipc_get_property(self, prop: str):
         try:

@@ -6,7 +6,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("WebKit", "6.0")
 
-from gi.repository import Gtk, WebKit, GLib
+from gi.repository import Gtk, WebKit, GLib, Gio
 
 from bbs_popcorn.history_store import HistoryStore
 from bbs_popcorn.logging_utils import log_event
@@ -82,7 +82,10 @@ class YtMpvApp(Gtk.Application):
 
     def __init__(self, cookie_db_path: str, cookie_export_path: str,
                  sponsorblock_script_path: str = None):
-        super().__init__(application_id="io.github.blacksamdev.Popcorn")
+        super().__init__(
+            application_id="io.github.blacksamdev.Popcorn",
+            flags=Gio.ApplicationFlags.DEFAULT_FLAGS
+        )
         self.connect("activate", self.on_activate)
         self.cookie_db_path = cookie_db_path
         self.cookie_export_path = cookie_export_path
