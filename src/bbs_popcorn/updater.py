@@ -4,11 +4,14 @@ import subprocess
 import json
 import time
 
+# Détection automatique du mode d'exécution
+_IS_FLATPAK = os.path.exists("/app")
+
 
 class Updater:
     """
     Gestion des dépendances externes (mpv / yt-dlp)
-    Compatible Flatpak (host fallback via flatpak-spawn).
+    Compatible Flatpak et installation native.
     """
 
     PROFILE_FLAGS = {
@@ -25,18 +28,30 @@ class Updater:
         return shutil.which(name) is not None
 
     @staticmethod
+    def _build_cmd(args: list) -> list:
+        """Construit la commande selon le mode Flatpak ou natif."""
+        if _IS_FLATPAK:
+            return ["flatpak-spawn", "--host"] + args
+        # Mode natif : remplacer "flatpak run io.mpv.Mpv" par "mpv"
+        if "io.mpv.Mpv" in args:
+            return ["mpv"] + args[args.index("io.mpv.Mpv") + 1:]
+        return args
+
+    @staticmethod
     def run_host(args: list, quiet: bool = False):
+        cmd = Updater._build_cmd(args)
         if quiet:
             return subprocess.run(
-                ["flatpak-spawn", "--host"] + args,
+                cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
-        return subprocess.run(["flatpak-spawn", "--host"] + args)
+        return subprocess.run(cmd)
 
     @staticmethod
     def popen_host(args: list):
-        return subprocess.Popen(["flatpak-spawn", "--host"] + args)
+        cmd = Updater._build_cmd(args)
+        return subprocess.Popen(cmd)
 
     # ----------------------------
     # MPV

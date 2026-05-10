@@ -4,8 +4,6 @@
 
 **YouTube via MPV**
 
-<img src="assets/gif.gif" width="600">
-
 BBS pOpcOrn est un client YouTube Linux basé sur WebKitGTK.
 Il affiche l'interface YouTube dans une fenêtre GTK et délègue la lecture vidéo à MPV via des flux résolus par yt-dlp.
 
@@ -32,13 +30,13 @@ Pendant la lecture, fermez la fenêtre MPV pour revenir à la fenêtre YouTube.
 ## Prérequis
 
 - Linux
-- Flatpak
+- Flatpak (recommandé) ou installation native
 
 ---
 
 ## Dépendances
 
-Comportement cible pour Flatpak/Flathub :
+Comportement cible pour Flatpak :
 
 - MPV doit être installé côté hôte via Flatpak (`io.mpv.Mpv`)
 - `yt-dlp` est embarqué dans l'application (inclus au build Flatpak)
@@ -50,7 +48,6 @@ Comportement cible pour Flatpak/Flathub :
 
 ### MPV (Flatpak recommandé)
 
-Installation :
 ```bash
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 flatpak install -y flathub io.mpv.Mpv
@@ -62,9 +59,9 @@ Aucune installation utilisateur nécessaire : `yt-dlp` est fourni dans le Flatpa
 
 ---
 
-## Installation
+## Installation via Flatpak
 
-Ajouter le dépôt Flatpak :
+Ajouter le dépôt :
 ```bash
 flatpak remote-add --if-not-exists --from bbs-popcorn https://blacksamdev.github.io/BBS-Popcorn/bbs-popcorn.flatpakrepo
 ```
@@ -76,6 +73,29 @@ flatpak install bbs-popcorn io.github.blacksamdev.Popcorn
 
 ---
 
+## Installation native (sans Flatpak)
+
+Dépendances système : `mpv`, `yt-dlp`, `python-gobject`, `webkit2gtk-4.1`
+
+```bash
+git clone https://github.com/blacksamdev/BBS-Popcorn.git
+cd BBS-Popcorn
+make install-deps   # vérifie/installe les dépendances Python
+make install-user   # installe dans ~/.local
+```
+
+Pour une installation système :
+```bash
+sudo make install
+```
+
+> **Note Xorg :** si WebKit affiche des artefacts graphiques, lancez l'application avec :
+> ```bash
+> WEBKIT_DISABLE_DMABUF_RENDERER=1 bbs-popcorn
+> ```
+
+---
+
 ## Mise à jour
 
 ```bash
@@ -84,7 +104,7 @@ flatpak update io.github.blacksamdev.Popcorn
 
 ---
 
-## Installation depuis les sources
+## Build depuis les sources (Flatpak)
 
 ```bash
 git clone https://github.com/blacksamdev/BBS-Popcorn.git
@@ -116,7 +136,7 @@ WebKitGTK (interface YouTube)
 | Composant | Technologie |
 |---|---|
 | Interface | Python + GTK4 + WebKitGTK |
-| Lecteur | MPV (Flatpak) |
+| Lecteur | MPV (Flatpak ou natif) |
 | Résolution flux | yt-dlp (embarqué dans pOpcOrn) |
 | SponsorBlock | mpv_sponsorblock (embarqué dans pOpcOrn) |
 | Cookies | WebKitGTK stockage local |
@@ -155,6 +175,7 @@ Depuis l'icône `⚙` de l'application :
 - Mode de lecture MPV (fenêtre / plein écran)
 - Taille fenêtre MPV (%), active uniquement en mode fenêtré
 - SponsorBlock : active/désactive le saut automatique des segments sponsorisés
+- Mode WebKit : Normal (Shorts dans WebKit) ou Éco (tout dans MPV, WebGL désactivé)
 
 Depuis l'icône `🕐` :
 
