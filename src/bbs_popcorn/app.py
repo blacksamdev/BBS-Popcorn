@@ -234,6 +234,7 @@ class YtMpvApp(Gtk.Application):
         vbox.append(status_box)
 
         self.win.set_child(vbox)
+        self.win.connect("close-request", self._on_close_request)
         self.win.connect("destroy", self._on_shutdown)
         self.win.present()
 
@@ -456,6 +457,11 @@ class YtMpvApp(Gtk.Application):
             self.player.play(url)
         else:
             self.webview.load_uri(url)
+
+    def _on_close_request(self, _win):
+        self.player.cleanup()
+        self.quit()
+        return False
 
     def _on_shutdown(self, _win):
         self.player.cleanup()

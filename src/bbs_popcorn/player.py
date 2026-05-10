@@ -197,13 +197,16 @@ class MpvPlayer:
             sock.settimeout(2.0)
             sock.connect(_MPV_IPC_SOCKET)
 
-            # Options en string "key=val" — compatible toutes versions MPV
-            cmd_list = ["loadfile", url, "replace"]
+            # Si reprise : définir la position de départ avant le loadfile
             if start_pos and start_pos > 0:
-                cmd_list.append(f"start={int(start_pos)}")
+                pre = json.dumps({
+                    "command": ["set_property", "start", start_pos],
+                    "request_id": 41
+                }).encode() + b"\n"
+                sock.sendall(pre)
 
             msg = json.dumps({
-                "command": cmd_list,
+                "command": ["loadfile", url, "replace"],
                 "request_id": 42
             }).encode() + b"\n"
             sock.sendall(msg)
