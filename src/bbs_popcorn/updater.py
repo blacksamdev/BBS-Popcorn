@@ -49,11 +49,11 @@ class Updater:
 
     @staticmethod
     def kill_all_mpv():
-        """Tue les process MPV de pOpcOrn côté host, ciblés par le socket IPC."""
+        """Tue les process MPV de pOpcOrn côté host, ciblés par le nom du socket."""
         try:
-            # Cible uniquement les mpv lancés avec notre socket — très spécifique
+            # Correspond au socket quel que soit son répertoire (/tmp ou /run/user/...)
             Updater.run_host(
-                ["pkill", "-f", "input-ipc-server=/tmp/bbs-popcorn-mpv.sock"],
+                ["pkill", "-f", "bbs-popcorn-mpv.sock"],
                 quiet=True
             )
         except Exception:

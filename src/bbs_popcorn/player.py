@@ -149,13 +149,13 @@ class MpvPlayer:
         with self._play_lock:
             self._mpv_idle_proc = proc
 
-        deadline = time.monotonic() + 4.0
+        deadline = time.monotonic() + 15.0
         while time.monotonic() < deadline:
             if os.path.exists(_MPV_IPC_SOCKET):
                 log_event("MPV pre-warm: IPC socket pret.", level="debug")
                 threading.Thread(target=self._watchdog, daemon=True).start()
                 return
-            time.sleep(0.05)
+            time.sleep(0.1)
         log_event("MPV pre-warm: socket absent apres delai.", level="debug")
 
     def _watchdog(self):
