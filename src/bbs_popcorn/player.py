@@ -51,6 +51,7 @@ class MpvPlayer:
         self._mpv_idle_proc = None
         self._prewarm_thread = None
         self._ytdlp_proc = None
+        self._playback_ended = threading.Event()
         self._resume = ResumeStore()
         self._tracked_pos: float = 0.0
         self._tracked_duration: float | None = None
@@ -337,11 +338,23 @@ class MpvPlayer:
                     break
                 time.sleep(0.2)
         # Polling position/durée toutes les 5s via IPC
+        had_valid_pos = False
+        none_count = 0
         while self._tracking and self._is_playing:
             pos = self._ipc_get_property("time-pos")
             dur = self._ipc_get_property("duration")
             if isinstance(pos, (int, float)):
                 self._tracked_pos = float(pos)
+                had_valid_pos = True
+                none_count = 0
+            else:
+                if had_valid_pos:
+                    none_count += 1
+                    if none_count >= 2:
+                        # Fin de lecture via IPC (MPV retourné en idle)
+                        log_event("track_position: fin detectee via IPC")
+                        self._playback_ended.set()
+                        break
             if isinstance(dur, (int, float)) and dur > 0:
                 self._tracked_duration = float(dur)
             log_event(f"track_position: pos={pos} dur={dur} tracked={self._tracked_pos:.1f}")
@@ -522,6 +535,7 @@ class MpvPlayer:
 
             if idle_proc and self._ipc_loadfile(url, start_pos=start_pos):
                 process = idle_proc
+                used_ipc = True
                 time.sleep(0.3)
             else:
                 process = self._start_process(
@@ -531,6 +545,7 @@ class MpvPlayer:
                     ipc_socket_path=_MPV_IPC_SOCKET,
                     monitor_offset=monitor_offset,
                 )
+                used_ipc = False
 
             if process.poll() is not None:
                 if self._retry_with_fallback(url, cookies_path, monitor_offset):
@@ -547,10 +562,18 @@ class MpvPlayer:
 
             self._status("Lecture en cours.")
             GLib.idle_add(self._hide_for_mpv)
+            self._playback_ended.clear()
             threading.Thread(
                 target=self._track_position, args=(url, start_pos), daemon=True
             ).start()
-            return_code = self._wait_with_timeout(process)
+
+            if used_ipc:
+                # Prewarm MPV reste en idle après la lecture → attendre _playback_ended
+                self._playback_ended.wait(timeout=43200)
+                return_code = 0
+            else:
+                return_code = self._wait_with_timeout(process)
+
             self._tracking = False
             self._resume.set(url, self._tracked_pos, self._tracked_duration)
             if return_code != 0:
