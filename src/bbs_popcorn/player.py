@@ -313,7 +313,7 @@ class MpvPlayer:
             log_event(f"fetch_title_async error: {exc}", level="debug")
             self._ytdlp_proc = None
 
-    def _track_position(self, url: str):
+    def _track_position(self, url: str, seek_to: float = None):
         self._tracking = True
         self._tracked_pos = 0.0
         self._tracked_duration = None
@@ -324,6 +324,18 @@ class MpvPlayer:
         ).start()
 
         log_event(f"track_position: debut pour {url}")
+
+        # Si reprise via IPC : attendre que MPV joue puis seek
+        if seek_to and seek_to > 0:
+            deadline = time.monotonic() + 15.0
+            while time.monotonic() < deadline:
+                pos = self._ipc_get_property("time-pos")
+                if isinstance(pos, (int, float)) and pos >= 0:
+                    self._ipc_command("seek", seek_to, "absolute")
+                    log_event(f"track_position: seek to {seek_to:.1f}s")
+                    time.sleep(0.3)
+                    break
+                time.sleep(0.2)
         # Polling position/durée toutes les 5s via IPC
         while self._tracking and self._is_playing:
             pos = self._ipc_get_property("time-pos")
@@ -510,11 +522,6 @@ class MpvPlayer:
 
             if idle_proc and self._ipc_loadfile(url, start_pos=start_pos):
                 process = idle_proc
-                time.sleep(0.5)
-                # Si reprise : seek à la position sauvegardée
-                if start_pos and start_pos > 0:
-                    log_event(f"IPC seek to {start_pos:.1f}s", level="debug")
-                    self._ipc_command("seek", start_pos, "absolute")
                 time.sleep(0.3)
             else:
                 process = self._start_process(
@@ -541,7 +548,7 @@ class MpvPlayer:
             self._status("Lecture en cours.")
             GLib.idle_add(self._hide_for_mpv)
             threading.Thread(
-                target=self._track_position, args=(url,), daemon=True
+                target=self._track_position, args=(url, start_pos), daemon=True
             ).start()
             return_code = self._wait_with_timeout(process)
             self._tracking = False
@@ -637,7 +644,7 @@ class MpvPlayer:
         self._status("Lecture en cours (mode compatible).")
         GLib.idle_add(self._hide_for_mpv)
         threading.Thread(
-            target=self._track_position, args=(url,), daemon=True
+            target=self._track_position, args=(url, start_pos), daemon=True
         ).start()
         return_code = self._wait_with_timeout(process)
         self._tracking = False
