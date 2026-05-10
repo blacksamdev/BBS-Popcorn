@@ -213,7 +213,9 @@ class MpvPlayer:
                 try:
                     chunk = sock.recv(4096)
                     if not chunk:
-                        break
+                        # MPV a fermé la connexion en traitant la commande → succès
+                        sock.close()
+                        return True
                     buf += chunk
                     for line in buf.split(b"\n"):
                         line = line.strip()
@@ -232,7 +234,8 @@ class MpvPlayer:
                         except Exception:
                             continue
                 except OSError:
-                    break
+                    # Broken pipe = MPV a traité la commande → succès
+                    return True
             sock.close()
         except Exception as exc:
             log_event(f"IPC loadfile echec: {exc}", level="debug")
@@ -358,7 +361,8 @@ class MpvPlayer:
             if isinstance(dur, (int, float)) and dur > 0:
                 self._tracked_duration = float(dur)
             log_event(f"track_position: pos={pos} dur={dur} tracked={self._tracked_pos:.1f}", level="debug")
-            time.sleep(5.0)
+            # Polling rapide si pos=None (détection fin de lecture), normal sinon
+            time.sleep(1.0 if (had_valid_pos and not isinstance(pos, (int, float))) else 5.0)
         log_event(f"track_position: fin tracked_pos={self._tracked_pos:.1f} tracked_dur={self._tracked_duration}", level="debug")
         self._tracking = False
 
