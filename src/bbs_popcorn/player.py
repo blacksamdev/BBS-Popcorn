@@ -199,14 +199,6 @@ class MpvPlayer:
             sock.settimeout(2.0)
             sock.connect(_MPV_IPC_SOCKET)
 
-            # Si reprise : définir la position de départ avant le loadfile
-            if start_pos and start_pos > 0:
-                pre = json.dumps({
-                    "command": ["set_property", "start", start_pos],
-                    "request_id": 41
-                }).encode() + b"\n"
-                sock.sendall(pre)
-
             msg = json.dumps({
                 "command": ["loadfile", url, "replace"],
                 "request_id": 42
@@ -518,6 +510,11 @@ class MpvPlayer:
 
             if idle_proc and self._ipc_loadfile(url, start_pos=start_pos):
                 process = idle_proc
+                time.sleep(0.5)
+                # Si reprise : seek à la position sauvegardée
+                if start_pos and start_pos > 0:
+                    log_event(f"IPC seek to {start_pos:.1f}s", level="debug")
+                    self._ipc_command("seek", start_pos, "absolute")
                 time.sleep(0.3)
             else:
                 process = self._start_process(
