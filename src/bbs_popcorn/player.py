@@ -317,10 +317,11 @@ class MpvPlayer:
             log_event(f"fetch_title_async error: {exc}", level="debug")
             self._ytdlp_proc = None
 
-    def _track_position(self, url: str, seek_to: float = None):
+    def _track_position(self, url: str, seek_to: float = None, hide_on_ready: bool = False):
         self._tracking = True
         self._tracked_pos = 0.0
         self._tracked_duration = None
+        mpv_ready_signaled = False
 
         # Titre via yt-dlp en parallèle (non bloquant)
         threading.Thread(
@@ -350,6 +351,10 @@ class MpvPlayer:
                 self._tracked_pos = float(pos)
                 had_valid_pos = True
                 none_count = 0
+                # Premier time-pos valide = MPV joue → cacher WebKit maintenant
+                if hide_on_ready and not mpv_ready_signaled:
+                    mpv_ready_signaled = True
+                    GLib.idle_add(self._hide_for_mpv)
             else:
                 if had_valid_pos:
                     none_count += 1
@@ -565,10 +570,11 @@ class MpvPlayer:
                 return
 
             self._status("Lecture en cours.")
-            GLib.idle_add(self._hide_for_mpv)
+            # Ne pas cacher WebKit maintenant — _track_position le fera
+            # quand MPV joue réellement (premier time-pos valide)
             self._playback_ended.clear()
             threading.Thread(
-                target=self._track_position, args=(url, start_pos), daemon=True
+                target=self._track_position, args=(url, start_pos, True), daemon=True
             ).start()
 
             if used_ipc:
@@ -669,9 +675,8 @@ class MpvPlayer:
         if process.poll() is not None:
             return False
         self._status("Lecture en cours (mode compatible).")
-        GLib.idle_add(self._hide_for_mpv)
         threading.Thread(
-            target=self._track_position, args=(url, start_pos), daemon=True
+            target=self._track_position, args=(url, start_pos, True), daemon=True
         ).start()
         return_code = self._wait_with_timeout(process)
         self._tracking = False
