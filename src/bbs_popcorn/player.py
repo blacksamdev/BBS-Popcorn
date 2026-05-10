@@ -200,7 +200,7 @@ class MpvPlayer:
             # Options en string "key=val" — compatible toutes versions MPV
             cmd_list = ["loadfile", url, "replace"]
             if start_pos and start_pos > 0:
-                cmd_list.append(f"start={start_pos:.1f}")
+                cmd_list.append(f"start={int(start_pos)}")
 
             msg = json.dumps({
                 "command": cmd_list,
