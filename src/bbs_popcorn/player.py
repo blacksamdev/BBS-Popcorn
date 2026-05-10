@@ -329,6 +329,7 @@ class MpvPlayer:
             target=self._fetch_title_async, args=(url,), daemon=True
         ).start()
 
+        log_event(f"track_position: debut pour {url}", level="debug")
         # Polling position/durée toutes les 5s via IPC
         while self._tracking and self._is_playing:
             pos = self._ipc_get_property("time-pos")
@@ -337,7 +338,9 @@ class MpvPlayer:
                 self._tracked_pos = float(pos)
             if isinstance(dur, (int, float)) and dur > 0:
                 self._tracked_duration = float(dur)
+            log_event(f"track_position: pos={pos} dur={dur} tracked={self._tracked_pos:.1f}", level="debug")
             time.sleep(5.0)
+        log_event(f"track_position: fin tracked_pos={self._tracked_pos:.1f} tracked_dur={self._tracked_duration}", level="debug")
         self._tracking = False
 
     def _wait_with_timeout(self, process, timeout: int = 43200) -> int:
