@@ -324,7 +324,7 @@ class MpvPlayer:
             target=self._fetch_title_async, args=(url,), daemon=True
         ).start()
 
-        log_event(f"track_position: debut pour {url}")
+        log_event(f"track_position: debut pour {url}", level="debug")
 
         # Si reprise via IPC : attendre que MPV joue puis seek
         if seek_to and seek_to > 0:
@@ -333,7 +333,7 @@ class MpvPlayer:
                 pos = self._ipc_get_property("time-pos")
                 if isinstance(pos, (int, float)) and pos >= 0:
                     self._ipc_command("seek", seek_to, "absolute")
-                    log_event(f"track_position: seek to {seek_to:.1f}s")
+                    log_event(f"track_position: seek to {seek_to:.1f}s", level="debug")
                     time.sleep(0.3)
                     break
                 time.sleep(0.2)
@@ -352,14 +352,14 @@ class MpvPlayer:
                     none_count += 1
                     if none_count >= 2:
                         # Fin de lecture via IPC (MPV retourné en idle)
-                        log_event("track_position: fin detectee via IPC")
+                        log_event("track_position: fin detectee via IPC", level="debug")
                         self._playback_ended.set()
                         break
             if isinstance(dur, (int, float)) and dur > 0:
                 self._tracked_duration = float(dur)
-            log_event(f"track_position: pos={pos} dur={dur} tracked={self._tracked_pos:.1f}")
+            log_event(f"track_position: pos={pos} dur={dur} tracked={self._tracked_pos:.1f}", level="debug")
             time.sleep(5.0)
-        log_event(f"track_position: fin tracked_pos={self._tracked_pos:.1f} tracked_dur={self._tracked_duration}")
+        log_event(f"track_position: fin tracked_pos={self._tracked_pos:.1f} tracked_dur={self._tracked_duration}", level="debug")
         self._tracking = False
 
     def _wait_with_timeout(self, process, timeout: int = 43200) -> int:
