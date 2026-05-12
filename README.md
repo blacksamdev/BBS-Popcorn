@@ -2,7 +2,9 @@
 
 🇬🇧 [English version](README.en.md)
 
-Client YouTube léger pour Linux — interface WebKitGTK, lecture via MPV.
+Reprenez le contrôle de votre expérience YouTube — interface native, lecture légère via MPV, locale et respectueuse de votre vie privée.
+
+Si le projet vous plaît, une ⭐ GitHub et un 👍 sur [AlternativeTo](https://alternativeto.net/software/bbs-popcorn/about/) font vraiment la différence !
 
 ---
 
@@ -49,12 +51,6 @@ L'application apparaît ensuite dans le menu de votre bureau.
 ```bash
 flatpak update io.github.blacksamdev.Popcorn
 ```
-
----
-
-## Dépôt GitHub
-
-[github.com/blacksamdev/BBS-Popcorn](https://github.com/blacksamdev/BBS-Popcorn)
 
 ---
 ---
