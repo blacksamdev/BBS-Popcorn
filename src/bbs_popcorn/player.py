@@ -364,11 +364,14 @@ class MpvPlayer:
             else:
                 if had_valid_pos:
                     none_count += 1
-                    if none_count >= 2:
-                        # Fin de lecture via IPC (MPV retourné en idle)
-                        log_event("track_position: fin detectee via IPC", level="debug")
-                        self._playback_ended.set()
-                        break
+                    if none_count >= 3:
+                        # Vérifier si MPV est vraiment idle
+                        # ou en train de charger la prochaine vidéo d'une playlist
+                        idle = self._ipc_get_property("idle-active")
+                        if idle is True or idle is None:
+                            log_event("track_position: fin detectee via IPC", level="debug")
+                            self._playback_ended.set()
+                            break
             if isinstance(dur, (int, float)) and dur > 0:
                 self._tracked_duration = float(dur)
             log_event(f"track_position: pos={pos} dur={dur} tracked={self._tracked_pos:.1f}", level="debug")
