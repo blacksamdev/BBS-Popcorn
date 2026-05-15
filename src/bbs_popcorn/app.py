@@ -398,6 +398,18 @@ class YtMpvApp(Gtk.Application):
                 if (!a) return;
                 const href = a.href;
 
+                // Vidéo à venir → laisser YouTube gérer (page "À venir")
+                const container = a.closest(
+                    'ytd-rich-item-renderer, ytd-video-renderer, ' +
+                    'ytd-compact-video-renderer, ytd-grid-video-renderer'
+                );
+                if (container) {{
+                    const upcoming = container.querySelector(
+                        '[data-style="UPCOMING"], [overlay-style="UPCOMING"]'
+                    );
+                    if (upcoming) return;
+                }}
+
                 // Mode éco : Shorts → MPV
                 if (ECO_MODE && href.includes('youtube.com/shorts/')) {{
                     const m = href.match(/shorts[/]([a-zA-Z0-9_-]+)/);

@@ -58,6 +58,7 @@ class MpvPlayer:
         self._prewarm_thread = None
         self._ytdlp_proc = None
         self._playback_ended = threading.Event()
+        self._stream_started = False
         self._resume = ResumeStore()
         self._tracked_pos: float = 0.0
         self._tracked_duration: float | None = None
@@ -360,6 +361,7 @@ class MpvPlayer:
                 # Premier time-pos valide = MPV joue → cacher WebKit maintenant
                 if hide_on_ready and not mpv_ready_signaled:
                     mpv_ready_signaled = True
+                    self._stream_started = True
                     GLib.idle_add(self._hide_for_mpv)
             else:
                 if had_valid_pos:
@@ -372,6 +374,15 @@ class MpvPlayer:
                             log_event("track_position: fin detectee via IPC", level="debug")
                             self._playback_ended.set()
                             break
+                elif not had_valid_pos:
+                    # Pas encore de lecture — MPV charge peut-être encore
+                    # idle-active=True signifie que MPV a abandonné le flux
+                    idle = self._ipc_get_property("idle-active")
+                    if idle is True:
+                        log_event("track_position: flux indisponible (idle sans lecture)", level="debug")
+                        self._stream_started = False
+                        self._playback_ended.set()
+                        break
             if isinstance(dur, (int, float)) and dur > 0:
                 self._tracked_duration = float(dur)
             log_event(f"track_position: pos={pos} dur={dur} tracked={self._tracked_pos:.1f}", level="debug")
@@ -582,6 +593,7 @@ class MpvPlayer:
             # Ne pas cacher WebKit maintenant — _track_position le fera
             # quand MPV joue réellement (premier time-pos valide)
             self._playback_ended.clear()
+            self._stream_started = False
             threading.Thread(
                 target=self._track_position, args=(url, start_pos, True), daemon=True
             ).start()
@@ -594,6 +606,19 @@ class MpvPlayer:
                 return_code = self._wait_with_timeout(process)
 
             self._tracking = False
+
+            # Flux jamais démarré → vidéo à venir ou indisponible
+            if not self._stream_started:
+                log_event(f"Flux non demarré pour {url}")
+                self._status("Vidéo indisponible.")
+                notice = Updater.get_upcoming_live_message(url)
+                if notice and self.on_show_notice:
+                    GLib.idle_add(self.on_show_notice, notice)
+                else:
+                    GLib.idle_add(self._hide_loading_only)
+                GLib.idle_add(self._show_after_mpv)
+                return
+
             self._resume.set(url, self._tracked_pos, self._tracked_duration)
             if return_code != 0:
                 print(f"[BBS Popcorn] MPV exited with code {return_code}.")
