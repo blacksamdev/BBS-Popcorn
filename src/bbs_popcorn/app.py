@@ -633,12 +633,33 @@ class YtMpvApp(Gtk.Application):
     def _build_settings_popover(self):
         self.pending_settings = dict(self.settings)
         popover = Gtk.Popover()
-        self._settings_popover = popover   # stocké pour popdown()
+        self._settings_popover = popover
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_margin_top(8); box.set_margin_bottom(8)
         box.set_margin_start(10); box.set_margin_end(10)
 
-        # Qualité
+        # ── Langue (en premier pour les anglophones) ──
+        lang_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        lang_label = Gtk.Label(label=t("settings_language"))
+        lang_label.set_xalign(0); lang_label.set_hexpand(True)
+        lang_row.append(lang_label)
+        self.lang_combo = Gtk.ComboBoxText()
+        self.lang_combo.append("fr", "Français")
+        self.lang_combo.append("en", "English")
+        self.lang_combo.set_active_id(self.pending_settings.get("language", "fr"))
+        self.lang_combo.connect("changed", self._on_lang_changed)
+        lang_row.append(self.lang_combo)
+        box.append(lang_row)
+
+        self.lang_restart_label = Gtk.Label(label="")
+        self.lang_restart_label.set_xalign(0)
+        self.lang_restart_label.set_visible(False)
+        self.lang_restart_label.get_style_context().add_class("dim-label")
+        box.append(self.lang_restart_label)
+
+        box.append(Gtk.Separator())
+
+        # ── Qualité ──
         quality_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         quality_row.append(Gtk.Label(label=t("settings_quality")))
         self.quality_combo = Gtk.ComboBoxText()
@@ -653,7 +674,7 @@ class YtMpvApp(Gtk.Application):
         quality_row.append(self.quality_combo)
         box.append(quality_row)
 
-        # Mode fenêtre
+        # ── Mode fenêtre ──
         mode_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         mode_row.append(Gtk.Label(label=t("settings_window")))
         self.mode_combo = Gtk.ComboBoxText()
@@ -664,7 +685,7 @@ class YtMpvApp(Gtk.Application):
         mode_row.append(self.mode_combo)
         box.append(mode_row)
 
-        # Taille
+        # ── Taille ──
         scale_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.scale_label = Gtk.Label(
             label=t("settings_size", value=self.pending_settings['window_scale_percent'])
@@ -691,7 +712,7 @@ class YtMpvApp(Gtk.Application):
         scale_row.append(self.scale_spin)
         box.append(scale_row)
 
-        # SponsorBlock
+        # ── SponsorBlock ──
         sb_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         sb_label = Gtk.Label(label=t("settings_sponsorblock"))
         sb_label.set_xalign(0); sb_label.set_hexpand(True)
@@ -707,7 +728,7 @@ class YtMpvApp(Gtk.Application):
         sb_row.append(self.sponsorblock_switch)
         box.append(sb_row)
 
-        # Mode WebKit
+        # ── Mode WebKit ──
         wk_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         wk_label = Gtk.Label(label=t("settings_webkit"))
         wk_label.set_xalign(0); wk_label.set_hexpand(True)
@@ -720,63 +741,39 @@ class YtMpvApp(Gtk.Application):
         )
         self.webkit_mode_combo.connect("changed", self._on_settings_changed)
         wk_row.append(self.webkit_mode_combo)
-        # Bouton ? avec tooltip
         btn_help = Gtk.Button(label="?")
-        btn_help.set_tooltip_text(
-            "Mode éco : réduit le fonctionnement de WebKit au minimum.\n"
-            "WebGL et WebAudio désactivés.\n"
-            "Les Shorts sont lus par MPV au lieu du navigateur intégré."
-        )
-        btn_help.set_sensitive(False)  # bouton purement informatif
+        btn_help.set_tooltip_text(t("settings_eco_tooltip"))
+        btn_help.set_sensitive(False)
         wk_row.append(btn_help)
         box.append(wk_row)
 
-        # Aide générale
+        # ── Aide ──
         help_label = Gtk.Label(label=t("settings_help"))
         help_label.set_xalign(0); help_label.set_wrap(True)
         help_label.set_max_width_chars(36)
         box.append(help_label)
 
-        self.save_button = Gtk.Button(label=t("settings_save"))
-        self.save_button.set_sensitive(False)
-        self.save_button.connect("clicked", self._on_save_clicked)
-        box.append(self.save_button)
-
-        # Langue
-        lang_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        lang_row.set_margin_top(4)
-        lang_label = Gtk.Label(label=t("settings_language"))
-        lang_label.set_xalign(0); lang_label.set_hexpand(True)
-        lang_row.append(lang_label)
-        self.lang_combo = Gtk.ComboBoxText()
-        self.lang_combo.append("fr", "Français")
-        self.lang_combo.append("en", "English")
-        self.lang_combo.set_active_id(self.pending_settings.get("language", "fr"))
-        self.lang_combo.connect("changed", self._on_lang_changed)
-        lang_row.append(self.lang_combo)
-        box.append(lang_row)
-
-        self.lang_restart_label = Gtk.Label(label="")
-        self.lang_restart_label.set_xalign(0)
-        self.lang_restart_label.set_visible(False)
-        ctx_lr = self.lang_restart_label.get_style_context()
-        ctx_lr.add_class("dim-label")
-        box.append(self.lang_restart_label)
-
         popover.set_child(box)
         self._sync_scale_sensitivity()
-        self._sync_save_button_state()
         return popover
+
+    def _auto_save(self):
+        """Sauvegarde immédiate sans fermer le popover."""
+        self.settings.update(self.pending_settings)
+        save_settings(self.settings)
+        self._apply_player_settings()
+        self._apply_webkit_settings()
+        self.inject_interceptor()
 
     def _on_sponsorblock_changed(self, switch, state):
         self.pending_settings["sponsorblock_enabled"] = state
-        self._sync_save_button_state()
+        self._auto_save()
 
     def _on_scale_changed(self, scale):
         value = int(scale.get_value())
         self.scale_label.set_text(t("settings_size", value=value))
         self.pending_settings["window_scale_percent"] = value
-        self._sync_save_button_state()
+        self._auto_save()
 
     def _on_settings_changed(self, *_args):
         self.pending_settings["quality_target"] = (
@@ -789,50 +786,21 @@ class YtMpvApp(Gtk.Application):
             self.webkit_mode_combo.get_active_id() or "normal"
         )
         self._sync_scale_sensitivity()
-        self._sync_save_button_state()
+        self._auto_save()
 
     def _on_lang_changed(self, combo):
         selected = combo.get_active_id() or "fr"
         self.pending_settings["language"] = selected
+        self.settings["language"] = selected
+        save_settings(self.settings)
         # Détrompeur dans la langue choisie
         from bbs_popcorn.i18n import _STRINGS
         note = _STRINGS.get(selected, _STRINGS["fr"]).get("lang_restart", "")
-        current = self.settings.get("language", "fr")
-        if selected != current:
-            self.lang_restart_label.set_text(note)
-            self.lang_restart_label.set_visible(True)
-        else:
-            self.lang_restart_label.set_visible(False)
-        self._sync_save_button_state()
-
-    def _on_save_clicked(self, _button):
-        self.settings.update(self.pending_settings)
-        save_settings(self.settings)
-        set_lang(self.settings.get("language", "fr"))
-        self._apply_player_settings()
-        self._apply_webkit_settings()
-        self.inject_interceptor()
-        self._sync_save_button_state()
-        self._settings_popover.popdown()
-
-    def _apply_player_settings(self):
-        self.player.update_playback_settings(
-            quality_target=self.settings.get("quality_target", "1080"),
-            window_mode=self.settings.get("window_mode", "windowed"),
-            window_scale_percent=int(self.settings.get("window_scale_percent", 80)),
-            sponsorblock_enabled=bool(self.settings.get("sponsorblock_enabled", False)),
-        )
+        self.lang_restart_label.set_text(note)
+        self.lang_restart_label.set_visible(True)
 
     def _sync_scale_sensitivity(self):
         enabled = self.pending_settings.get("window_mode", "windowed") != "fullscreen"
         self.scale_slider.set_sensitive(enabled)
         self.scale_label.set_sensitive(enabled)
         self.scale_spin.set_sensitive(enabled)
-
-    def _sync_save_button_state(self):
-        has_changes = any(
-            self.settings.get(k) != self.pending_settings.get(k)
-            for k in ("quality_target", "window_mode", "window_scale_percent",
-                      "sponsorblock_enabled", "webkit_mode", "language")
-        )
-        self.save_button.set_sensitive(has_changes)
