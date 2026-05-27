@@ -39,6 +39,7 @@ L'application apparaît ensuite dans le menu de votre bureau.
 - **Cliquer sur une vidéo** dans l'interface YouTube pour la lancer dans MPV
 - **Quitter MPV** : touche `q` ou fermer la fenêtre — la fenêtre YouTube revient automatiquement
 - **Historique** : bouton `🕐` — reprend la lecture là où vous vous étiez arrêté
+- **Commentaires** : bouton `💬` — ouvre la page de la dernière vidéo visionnée pour accéder aux commentaires et à la description
 - **Réglages** : bouton `⚙` — qualité, taille de fenêtre, SponsorBlock, mode éco
 
 > **Note :** un délai de quelques secondes est normal au lancement de chaque vidéo,

@@ -39,6 +39,7 @@ The application will then appear in your desktop menu.
 - **Click on a video** in the YouTube interface to launch it in MPV
 - **Quit MPV** : press `q` or close the window — the YouTube window comes back automatically
 - **History** : `🕐` button — resumes playback where you left off
+- **Comments** : `💬` button — opens the last watched video page to access comments and description
 - **Settings** : `⚙` button — quality, window size, SponsorBlock, eco mode
 
 > **Note:** a few seconds delay is normal when launching each video,

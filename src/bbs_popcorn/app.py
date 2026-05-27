@@ -9,6 +9,7 @@ gi.require_version("WebKit", "6.0")
 from gi.repository import Gtk, WebKit, GLib, Gio
 
 from bbs_popcorn.history_store import HistoryStore
+from bbs_popcorn.i18n import t, set_lang
 from bbs_popcorn.logging_utils import log_event
 from bbs_popcorn.player import MpvPlayer
 
@@ -41,6 +42,7 @@ def load_settings() -> dict:
         "window_scale_percent": 80,
         "sponsorblock_enabled": False,
         "webkit_mode": "normal",
+        "language": "fr",
     }
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -93,6 +95,7 @@ class YtMpvApp(Gtk.Application):
         self.settings = load_settings()
         self.history = HistoryStore()
         self._window_created = False
+        set_lang(self.settings.get("language", "fr"))
 
     # ───────────── Activation ─────────────
 
@@ -125,7 +128,7 @@ class YtMpvApp(Gtk.Application):
         self.url_bar.connect("activate", self._on_url_bar_activate)
 
         self.btn_history = Gtk.MenuButton(label="🕐")
-        self.btn_history.set_tooltip_text("Historique")
+        self.btn_history.set_tooltip_text(t("tooltip_history"))
 
         self._current_video_url = None
         self._comments_nav = False
@@ -134,7 +137,7 @@ class YtMpvApp(Gtk.Application):
         btn_settings.set_popover(self._build_settings_popover())
 
         self.btn_comments = Gtk.Button(label="💬")
-        self.btn_comments.set_tooltip_text("Voir les commentaires de la dernière vidéo visionnée")
+        self.btn_comments.set_tooltip_text(t("tooltip_comments"))
         self.btn_comments.set_sensitive(False)
         self.btn_comments.connect("clicked", self._on_comments_clicked)
 
@@ -207,7 +210,7 @@ class YtMpvApp(Gtk.Application):
         self.loading_spinner = Gtk.Spinner()
         self.loading_spinner.set_size_request(64, 64)
         loading_box.append(self.loading_spinner)
-        self.loading_label = Gtk.Label(label="Chargement de la video...")
+        self.loading_label = Gtk.Label(label=t("loading"))
         loading_box.append(self.loading_label)
 
         css_provider = Gtk.CssProvider()
@@ -237,7 +240,7 @@ class YtMpvApp(Gtk.Application):
         # ───────── Statusbar ─────────
         status_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         status_box.add_css_class("status-bar")
-        self.status_label = Gtk.Label(label="Pret.")
+        self.status_label = Gtk.Label(label=t("status_ready"))
         self.status_label.set_halign(Gtk.Align.START)
         status_box.append(self.status_label)
         vbox.append(status_box)
@@ -357,7 +360,7 @@ class YtMpvApp(Gtk.Application):
         if self._is_allowed_uri(uri):
             return False
         decision.ignore()
-        self._set_status("Navigation hors YouTube bloquee.")
+        self._set_status(t("status_blocked"))
         return True
 
     def _is_allowed_uri(self, uri: str) -> bool:
@@ -496,7 +499,7 @@ class YtMpvApp(Gtk.Application):
         self.history.add(normalized, title="")
         resume_pos = self.player._resume.get(normalized)
         if resume_pos:
-            self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
+            self._set_status(t("status_resume", time=format_timestamp(resume_pos)))
         # Tracker l'URL pour le bouton commentaires
         if "watch?v=" in normalized:
             self._current_video_url = normalized
@@ -516,7 +519,7 @@ class YtMpvApp(Gtk.Application):
             self.history.add(normalized, title="")
             resume_pos = self.player._resume.get(normalized)
             if resume_pos:
-                self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
+                self._set_status(t("status_resume", time=format_timestamp(resume_pos)))
             self.player.play(url)
         else:
             self.webview.load_uri(url)
@@ -533,7 +536,7 @@ class YtMpvApp(Gtk.Application):
     # ───────── Loading overlay ─────────
 
     def _show_loading_overlay(self):
-        self.loading_label.set_text("Chargement de la video...")
+        self.loading_label.set_text(t("loading"))
         self.loading_revealer.set_can_target(True)
         self.loading_spinner.start()
         self.loading_revealer.set_reveal_child(True)
@@ -569,9 +572,9 @@ class YtMpvApp(Gtk.Application):
         box.set_margin_start(10); box.set_margin_end(10)
 
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        title_label = Gtk.Label(label="Historique")
+        title_label = Gtk.Label(label=t("tooltip_history"))
         title_label.set_hexpand(True); title_label.set_xalign(0)
-        btn_clear = Gtk.Button(label="Effacer")
+        btn_clear = Gtk.Button(label=t("history_clear"))
         btn_clear.connect("clicked", self._on_history_clear)
         header.append(title_label); header.append(btn_clear)
         box.append(header)
@@ -596,7 +599,7 @@ class YtMpvApp(Gtk.Application):
             self._history_list_box.remove(child)
         entries = self.history.entries()
         if not entries:
-            lbl = Gtk.Label(label="Aucun historique.")
+            lbl = Gtk.Label(label=t("history_empty"))
             lbl.set_margin_top(8); lbl.set_margin_bottom(8)
             self._history_list_box.append(lbl)
             return
@@ -618,7 +621,7 @@ class YtMpvApp(Gtk.Application):
         self._history_popover.popdown()
         resume_pos = self.player._resume.get(url)
         if resume_pos:
-            self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
+            self._set_status(t("status_resume", time=format_timestamp(resume_pos)))
         self.player.play(url)
 
     def _on_history_clear(self, _btn):
@@ -637,7 +640,7 @@ class YtMpvApp(Gtk.Application):
 
         # Qualité
         quality_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        quality_row.append(Gtk.Label(label="Qualite max:"))
+        quality_row.append(Gtk.Label(label=t("settings_quality")))
         self.quality_combo = Gtk.ComboBoxText()
         for q in ["2160", "1440", "1080", "720", "480"]:
             self.quality_combo.append_text(q)
@@ -652,10 +655,10 @@ class YtMpvApp(Gtk.Application):
 
         # Mode fenêtre
         mode_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        mode_row.append(Gtk.Label(label="Mode fenetre:"))
+        mode_row.append(Gtk.Label(label=t("settings_window")))
         self.mode_combo = Gtk.ComboBoxText()
-        self.mode_combo.append("windowed",   "Fenetre")
-        self.mode_combo.append("fullscreen", "Plein ecran")
+        self.mode_combo.append("windowed",   t("settings_window_w"))
+        self.mode_combo.append("fullscreen", t("settings_window_fs"))
         self.mode_combo.set_active_id(self.pending_settings["window_mode"])
         self.mode_combo.connect("changed", self._on_settings_changed)
         mode_row.append(self.mode_combo)
@@ -664,7 +667,7 @@ class YtMpvApp(Gtk.Application):
         # Taille
         scale_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.scale_label = Gtk.Label(
-            label=f"Taille: {self.pending_settings['window_scale_percent']}%"
+            label=t("settings_size", value=self.pending_settings['window_scale_percent'])
         )
         self.scale_label.set_xalign(0)
         scale_row.append(self.scale_label)
@@ -690,7 +693,7 @@ class YtMpvApp(Gtk.Application):
 
         # SponsorBlock
         sb_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        sb_label = Gtk.Label(label="SponsorBlock:")
+        sb_label = Gtk.Label(label=t("settings_sponsorblock"))
         sb_label.set_xalign(0); sb_label.set_hexpand(True)
         sb_row.append(sb_label)
         self.sponsorblock_switch = Gtk.Switch()
@@ -700,18 +703,18 @@ class YtMpvApp(Gtk.Application):
         self.sponsorblock_switch.connect("state-set", self._on_sponsorblock_changed)
         if not self.sponsorblock_script_path:
             self.sponsorblock_switch.set_sensitive(False)
-            sb_label.set_tooltip_text("Script SponsorBlock non disponible dans ce build.")
+            sb_label.set_tooltip_text(t("settings_sb_na"))
         sb_row.append(self.sponsorblock_switch)
         box.append(sb_row)
 
         # Mode WebKit
         wk_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        wk_label = Gtk.Label(label="Mode WebKit:")
+        wk_label = Gtk.Label(label=t("settings_webkit"))
         wk_label.set_xalign(0); wk_label.set_hexpand(True)
         wk_row.append(wk_label)
         self.webkit_mode_combo = Gtk.ComboBoxText()
-        self.webkit_mode_combo.append("normal", "Mode normal")
-        self.webkit_mode_combo.append("eco",    "Mode éco")
+        self.webkit_mode_combo.append("normal", t("settings_webkit_n"))
+        self.webkit_mode_combo.append("eco",    t("settings_webkit_eco"))
         self.webkit_mode_combo.set_active_id(
             self.pending_settings.get("webkit_mode", "normal")
         )
@@ -729,20 +732,36 @@ class YtMpvApp(Gtk.Application):
         box.append(wk_row)
 
         # Aide générale
-        help_label = Gtk.Label(
-            label=(
-                "Lecture externe : la video s'ouvre dans MPV.\n"
-                "Pour revenir a YouTube, fermez la fenetre MPV."
-            )
-        )
+        help_label = Gtk.Label(label=t("settings_help"))
         help_label.set_xalign(0); help_label.set_wrap(True)
         help_label.set_max_width_chars(36)
         box.append(help_label)
 
-        self.save_button = Gtk.Button(label="Save")
+        self.save_button = Gtk.Button(label=t("settings_save"))
         self.save_button.set_sensitive(False)
         self.save_button.connect("clicked", self._on_save_clicked)
         box.append(self.save_button)
+
+        # Langue
+        lang_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        lang_row.set_margin_top(4)
+        lang_label = Gtk.Label(label=t("settings_language"))
+        lang_label.set_xalign(0); lang_label.set_hexpand(True)
+        lang_row.append(lang_label)
+        self.lang_combo = Gtk.ComboBoxText()
+        self.lang_combo.append("fr", "Français")
+        self.lang_combo.append("en", "English")
+        self.lang_combo.set_active_id(self.pending_settings.get("language", "fr"))
+        self.lang_combo.connect("changed", self._on_lang_changed)
+        lang_row.append(self.lang_combo)
+        box.append(lang_row)
+
+        self.lang_restart_label = Gtk.Label(label="")
+        self.lang_restart_label.set_xalign(0)
+        self.lang_restart_label.set_visible(False)
+        ctx_lr = self.lang_restart_label.get_style_context()
+        ctx_lr.add_class("dim-label")
+        box.append(self.lang_restart_label)
 
         popover.set_child(box)
         self._sync_scale_sensitivity()
@@ -755,7 +774,7 @@ class YtMpvApp(Gtk.Application):
 
     def _on_scale_changed(self, scale):
         value = int(scale.get_value())
-        self.scale_label.set_text(f"Taille: {value}%")
+        self.scale_label.set_text(t("settings_size", value=value))
         self.pending_settings["window_scale_percent"] = value
         self._sync_save_button_state()
 
@@ -772,9 +791,24 @@ class YtMpvApp(Gtk.Application):
         self._sync_scale_sensitivity()
         self._sync_save_button_state()
 
+    def _on_lang_changed(self, combo):
+        selected = combo.get_active_id() or "fr"
+        self.pending_settings["language"] = selected
+        # Détrompeur dans la langue choisie
+        from bbs_popcorn.i18n import _STRINGS
+        note = _STRINGS.get(selected, _STRINGS["fr"]).get("lang_restart", "")
+        current = self.settings.get("language", "fr")
+        if selected != current:
+            self.lang_restart_label.set_text(note)
+            self.lang_restart_label.set_visible(True)
+        else:
+            self.lang_restart_label.set_visible(False)
+        self._sync_save_button_state()
+
     def _on_save_clicked(self, _button):
         self.settings.update(self.pending_settings)
         save_settings(self.settings)
+        set_lang(self.settings.get("language", "fr"))
         self._apply_player_settings()
         self._apply_webkit_settings()
         self.inject_interceptor()
@@ -799,6 +833,6 @@ class YtMpvApp(Gtk.Application):
         has_changes = any(
             self.settings.get(k) != self.pending_settings.get(k)
             for k in ("quality_target", "window_mode", "window_scale_percent",
-                      "sponsorblock_enabled", "webkit_mode")
+                      "sponsorblock_enabled", "webkit_mode", "language")
         )
         self.save_button.set_sensitive(has_changes)
