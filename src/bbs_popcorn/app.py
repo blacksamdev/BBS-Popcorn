@@ -134,7 +134,7 @@ class YtMpvApp(Gtk.Application):
         btn_settings.set_popover(self._build_settings_popover())
 
         self.btn_comments = Gtk.Button(label="💬")
-        self.btn_comments.set_tooltip_text("Voir les commentaires de la vidéo en cours")
+        self.btn_comments.set_tooltip_text("Voir les commentaires de la dernière vidéo visionnée")
         self.btn_comments.set_sensitive(False)
         self.btn_comments.connect("clicked", self._on_comments_clicked)
 
