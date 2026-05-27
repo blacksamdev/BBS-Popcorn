@@ -329,6 +329,10 @@ class YtMpvApp(Gtk.Application):
         action = decision.get_navigation_action()
         if not action:
             return False
+        # Navigations programmatiques (depuis le code Python) toujours autorisées
+        nav_type = action.get_navigation_type()
+        if nav_type == WebKit.NavigationType.OTHER:
+            return False
         request = action.get_request()
         if not request:
             return False

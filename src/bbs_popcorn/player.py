@@ -359,11 +359,17 @@ class MpvPlayer:
                 self._tracked_pos = float(pos)
                 had_valid_pos = True
                 none_count = 0
-                # Premier time-pos valide = MPV joue → cacher WebKit maintenant
-                if hide_on_ready and not mpv_ready_signaled:
+                # Premier time-pos valide = MPV joue
+                if not mpv_ready_signaled:
                     mpv_ready_signaled = True
                     self._stream_started = True
-                    GLib.idle_add(self._hide_for_mpv)
+                    if hide_on_ready:
+                        # Mode normal : cacher WebKit
+                        GLib.idle_add(self._hide_for_mpv)
+                    else:
+                        # Mode commentaires : cacher seulement l'overlay, pas la fenêtre
+                        if self.on_hide_loading:
+                            GLib.idle_add(self.on_hide_loading)
             else:
                 if had_valid_pos:
                     none_count += 1
