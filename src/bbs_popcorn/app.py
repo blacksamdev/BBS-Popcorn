@@ -566,6 +566,7 @@ class YtMpvApp(Gtk.Application):
 
     def _build_history_popover(self):
         popover = Gtk.Popover()
+        popover.set_autohide(True)
         self._history_popover = popover
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         box.set_margin_top(8); box.set_margin_bottom(8)
@@ -633,6 +634,7 @@ class YtMpvApp(Gtk.Application):
     def _build_settings_popover(self):
         self.pending_settings = dict(self.settings)
         popover = Gtk.Popover()
+        popover.set_autohide(True)
         self._settings_popover = popover
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_margin_top(8); box.set_margin_bottom(8)
@@ -756,6 +758,14 @@ class YtMpvApp(Gtk.Application):
         popover.set_child(box)
         self._sync_scale_sensitivity()
         return popover
+
+    def _apply_player_settings(self):
+        self.player.update_playback_settings(
+            quality_target=self.settings.get("quality_target", "1080"),
+            window_mode=self.settings.get("window_mode", "windowed"),
+            window_scale_percent=int(self.settings.get("window_scale_percent", 80)),
+            sponsorblock_enabled=bool(self.settings.get("sponsorblock_enabled", False)),
+        )
 
     def _auto_save(self):
         """Sauvegarde immédiate sans fermer le popover."""
