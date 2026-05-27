@@ -372,16 +372,10 @@ class YtMpvApp(Gtk.Application):
         eco = "true" if self.settings.get("webkit_mode", "normal") == "eco" else "false"
         js = f"""
         (function () {{
-            // Retirer l'ancien listener nommé si présent
             if (window.__bbsPopcornIntercept) {{
                 document.removeEventListener('click', window.__bbsPopcornIntercept, true);
             }}
-            if (window.__bbsPopcornPlayerClick) {{
-                const p = document.getElementById('movie_player');
-                if (p) p.removeEventListener('click', window.__bbsPopcornPlayerClick, true);
-            }}
             const ECO_MODE = {eco};
-            const COMMENTS_MODE = {comments};
 
             function disableSpeechApis() {{
                 try {{
@@ -420,60 +414,12 @@ class YtMpvApp(Gtk.Application):
                     () => {{ enableAudio(); muteSec(); }}, true);
             }}
 
-            // Mode commentaires : remplacer le player par un bouton MPV
-            function setupMpvButton() {{
-                if (!COMMENTS_MODE) return;
-                if (!location.pathname.startsWith('/watch')) return;
-                if (document.getElementById('__bbs_mpv_btn')) return;
-
-                // Masquer toutes les vidéos et couper le son
-                document.querySelectorAll('video').forEach(v => {{
-                    v.pause(); v.muted = true; v.autoplay = false;
-                    const orig = v.play.bind(v);
-                    v.play = () => Promise.resolve();
-                }});
-
-                const player = document.getElementById('movie_player') ||
-                               document.querySelector('ytd-player');
-                if (!player) return;
-
-                // Créer le bouton MPV par-dessus le player
-                const btn = document.createElement('div');
-                btn.id = '__bbs_mpv_btn';
-                btn.style.cssText = `
-                    position:absolute; inset:0; z-index:9999;
-                    display:flex; align-items:center; justify-content:center;
-                    background:rgba(0,0,0,0.7); cursor:pointer;
-                    font-size:1.4em; color:#fff; font-family:sans-serif;
-                    border-radius:4px;
-                `;
-                btn.innerHTML = '▶&nbsp;&nbsp;Lire dans MPV';
-                btn.addEventListener('click', (e) => {{
-                    e.preventDefault(); e.stopPropagation();
-                    window.webkit.messageHandlers.bbspopcorn.postMessage(location.href);
-                }});
-
-                player.style.position = 'relative';
-                player.appendChild(btn);
-            }}
-
-            // Appliquer à chaque navigation YouTube (SPA)
-            setupMpvButton();
-            new MutationObserver(setupMpvButton)
-                .observe(document.body, {{childList: true, subtree: true}});
-            document.addEventListener('yt-navigate-finish', () => {{
-                // Retirer l'ancien bouton après navigation
-                const old = document.getElementById('__bbs_mpv_btn');
-                if (old) old.remove();
-                setTimeout(setupMpvButton, 500);
-            }}, true);
-
             window.__bbsPopcornIntercept = function(e) {{
                 const a = e.target.closest('a[href]');
                 if (!a) return;
                 const href = a.href;
 
-                // Vidéo à venir → laisser YouTube gérer (page "À venir")
+                // Vidéo à venir → laisser YouTube gérer
                 const container = a.closest(
                     'ytd-rich-item-renderer, ytd-video-renderer, ' +
                     'ytd-compact-video-renderer, ytd-grid-video-renderer'
@@ -500,9 +446,6 @@ class YtMpvApp(Gtk.Application):
 
                 if (href.includes('youtube.com/watch') ||
                     href.includes('youtube.com/playlist')) {{
-                    // Mode commentaires : laisser naviguer vers la page vidéo
-                    // (MPV se lance via clic sur le player)
-                    if (COMMENTS_MODE) return;
                     e.preventDefault();
                     e.stopPropagation();
                     window.webkit.messageHandlers.bbspopcorn.postMessage(href);
@@ -761,22 +704,6 @@ class YtMpvApp(Gtk.Application):
         sb_row.append(self.sponsorblock_switch)
         box.append(sb_row)
 
-        # Commentaires
-        comments_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        comments_label = Gtk.Label(label="Commentaires:")
-        comments_label.set_xalign(0); comments_label.set_hexpand(True)
-        comments_row.append(comments_label)
-        self.comments_switch = Gtk.Switch()
-        self.comments_switch.set_active(
-        )
-        self.comments_switch.set_tooltip_text(
-            "Laisse la fenêtre YouTube visible pendant la lecture.\n"
-            "Permet de lire et laisser des commentaires."
-        )
-        self.comments_switch.connect("state-set", self._on_comments_changed)
-        comments_row.append(self.comments_switch)
-        box.append(comments_row)
-
         # Mode WebKit
         wk_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         wk_label = Gtk.Label(label="Mode WebKit:")
@@ -824,9 +751,6 @@ class YtMpvApp(Gtk.Application):
 
     def _on_sponsorblock_changed(self, switch, state):
         self.pending_settings["sponsorblock_enabled"] = state
-        self._sync_save_button_state()
-
-    def _on_comments_changed(self, switch, state):
         self._sync_save_button_state()
 
     def _on_scale_changed(self, scale):
