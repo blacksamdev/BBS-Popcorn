@@ -353,13 +353,19 @@ class YtMpvApp(Gtk.Application):
 
     def inject_interceptor(self):
         eco = "true" if self.settings.get("webkit_mode", "normal") == "eco" else "false"
+        comments = "true" if self.settings.get("show_comments", False) else "false"
         js = f"""
         (function () {{
             // Retirer l'ancien listener nommé si présent
             if (window.__bbsPopcornIntercept) {{
                 document.removeEventListener('click', window.__bbsPopcornIntercept, true);
             }}
+            if (window.__bbsPopcornPlayerClick) {{
+                const p = document.getElementById('movie_player');
+                if (p) p.removeEventListener('click', window.__bbsPopcornPlayerClick, true);
+            }}
             const ECO_MODE = {eco};
+            const COMMENTS_MODE = {comments};
 
             function disableSpeechApis() {{
                 try {{
@@ -398,6 +404,26 @@ class YtMpvApp(Gtk.Application):
                     () => {{ enableAudio(); muteSec(); }}, true);
             }}
 
+            // Mode commentaires : clic sur le player → MPV
+            function setupPlayerClick() {{
+                if (!COMMENTS_MODE) return;
+                if (!location.pathname.startsWith('/watch')) return;
+                const player = document.getElementById('movie_player');
+                if (!player || player.__bbsListening) return;
+                player.__bbsListening = true;
+                window.__bbsPopcornPlayerClick = function(e) {{
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.webkit.messageHandlers.bbspopcorn.postMessage(location.href);
+                }};
+                player.addEventListener('click', window.__bbsPopcornPlayerClick, true);
+            }}
+            // Tenter immédiatement puis à chaque mutation DOM
+            setupPlayerClick();
+            new MutationObserver(setupPlayerClick)
+                .observe(document.body, {{childList: true, subtree: true}});
+            document.addEventListener('yt-navigate-finish', setupPlayerClick, true);
+
             window.__bbsPopcornIntercept = function(e) {{
                 const a = e.target.closest('a[href]');
                 if (!a) return;
@@ -430,6 +456,9 @@ class YtMpvApp(Gtk.Application):
 
                 if (href.includes('youtube.com/watch') ||
                     href.includes('youtube.com/playlist')) {{
+                    // Mode commentaires : laisser naviguer vers la page vidéo
+                    // (MPV se lance via clic sur le player)
+                    if (COMMENTS_MODE) return;
                     e.preventDefault();
                     e.stopPropagation();
                     window.webkit.messageHandlers.bbspopcorn.postMessage(href);
