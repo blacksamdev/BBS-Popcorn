@@ -404,30 +404,53 @@ class YtMpvApp(Gtk.Application):
                     () => {{ enableAudio(); muteSec(); }}, true);
             }}
 
-            // Mode commentaires : clic sur le player → MPV
-            function setupPlayerClick() {{
+            // Mode commentaires : remplacer le player par un bouton MPV
+            function setupMpvButton() {{
                 if (!COMMENTS_MODE) return;
                 if (!location.pathname.startsWith('/watch')) return;
-                const player = document.getElementById('movie_player');
-                if (!player || player.__bbsListening) return;
-                player.__bbsListening = true;
-                window.__bbsPopcornPlayerClick = function(e) {{
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Couper la vidéo WebKit avant de lancer MPV
-                    document.querySelectorAll('video').forEach(v => {{
-                        v.pause();
-                        v.muted = true;
-                    }});
+                if (document.getElementById('__bbs_mpv_btn')) return;
+
+                // Masquer toutes les vidéos et couper le son
+                document.querySelectorAll('video').forEach(v => {{
+                    v.pause(); v.muted = true; v.autoplay = false;
+                    const orig = v.play.bind(v);
+                    v.play = () => Promise.resolve();
+                }});
+
+                const player = document.getElementById('movie_player') ||
+                               document.querySelector('ytd-player');
+                if (!player) return;
+
+                // Créer le bouton MPV par-dessus le player
+                const btn = document.createElement('div');
+                btn.id = '__bbs_mpv_btn';
+                btn.style.cssText = `
+                    position:absolute; inset:0; z-index:9999;
+                    display:flex; align-items:center; justify-content:center;
+                    background:rgba(0,0,0,0.7); cursor:pointer;
+                    font-size:1.4em; color:#fff; font-family:sans-serif;
+                    border-radius:4px;
+                `;
+                btn.innerHTML = '▶&nbsp;&nbsp;Lire dans MPV';
+                btn.addEventListener('click', (e) => {{
+                    e.preventDefault(); e.stopPropagation();
                     window.webkit.messageHandlers.bbspopcorn.postMessage(location.href);
-                }};
-                player.addEventListener('click', window.__bbsPopcornPlayerClick, true);
+                }});
+
+                player.style.position = 'relative';
+                player.appendChild(btn);
             }}
-            // Tenter immédiatement puis à chaque mutation DOM
-            setupPlayerClick();
-            new MutationObserver(setupPlayerClick)
+
+            // Appliquer à chaque navigation YouTube (SPA)
+            setupMpvButton();
+            new MutationObserver(setupMpvButton)
                 .observe(document.body, {{childList: true, subtree: true}});
-            document.addEventListener('yt-navigate-finish', setupPlayerClick, true);
+            document.addEventListener('yt-navigate-finish', () => {{
+                // Retirer l'ancien bouton après navigation
+                const old = document.getElementById('__bbs_mpv_btn');
+                if (old) old.remove();
+                setTimeout(setupMpvButton, 500);
+            }}, true);
 
             window.__bbsPopcornIntercept = function(e) {{
                 const a = e.target.closest('a[href]');
