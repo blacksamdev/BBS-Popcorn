@@ -249,10 +249,11 @@ class YtMpvApp(Gtk.Application):
         self.win.connect("close-request", self._on_close_request)
         self.win.connect("destroy", self._on_shutdown)
 
-        # Fermer les popovers au clic dans la fenêtre (WebView capture les events)
+        # Fermer les popovers au clic dans la fenêtre — phase CAPTURE avant WebKit
         click = Gtk.GestureClick()
+        click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         click.connect("pressed", self._on_window_click)
-        self.win.add_controller(click)
+        self.webview.add_controller(click)
 
         self.win.present()
 
