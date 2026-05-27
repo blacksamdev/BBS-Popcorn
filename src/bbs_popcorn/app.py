@@ -41,6 +41,7 @@ def load_settings() -> dict:
         "window_scale_percent": 80,
         "sponsorblock_enabled": False,
         "webkit_mode": "normal",
+        "show_comments": False,
     }
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -653,6 +654,23 @@ class YtMpvApp(Gtk.Application):
         sb_row.append(self.sponsorblock_switch)
         box.append(sb_row)
 
+        # Commentaires
+        comments_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        comments_label = Gtk.Label(label="Commentaires:")
+        comments_label.set_xalign(0); comments_label.set_hexpand(True)
+        comments_row.append(comments_label)
+        self.comments_switch = Gtk.Switch()
+        self.comments_switch.set_active(
+            self.pending_settings.get("show_comments", False)
+        )
+        self.comments_switch.set_tooltip_text(
+            "Laisse la fenêtre YouTube visible pendant la lecture.\n"
+            "Permet de lire et laisser des commentaires."
+        )
+        self.comments_switch.connect("state-set", self._on_comments_changed)
+        comments_row.append(self.comments_switch)
+        box.append(comments_row)
+
         # Mode WebKit
         wk_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         wk_label = Gtk.Label(label="Mode WebKit:")
@@ -702,6 +720,10 @@ class YtMpvApp(Gtk.Application):
         self.pending_settings["sponsorblock_enabled"] = state
         self._sync_save_button_state()
 
+    def _on_comments_changed(self, switch, state):
+        self.pending_settings["show_comments"] = state
+        self._sync_save_button_state()
+
     def _on_scale_changed(self, scale):
         value = int(scale.get_value())
         self.scale_label.set_text(f"Taille: {value}%")
@@ -736,6 +758,7 @@ class YtMpvApp(Gtk.Application):
             window_mode=self.settings.get("window_mode", "windowed"),
             window_scale_percent=int(self.settings.get("window_scale_percent", 80)),
             sponsorblock_enabled=bool(self.settings.get("sponsorblock_enabled", False)),
+            show_comments=bool(self.settings.get("show_comments", False)),
         )
 
     def _sync_scale_sensitivity(self):
@@ -748,6 +771,6 @@ class YtMpvApp(Gtk.Application):
         has_changes = any(
             self.settings.get(k) != self.pending_settings.get(k)
             for k in ("quality_target", "window_mode", "window_scale_percent",
-                      "sponsorblock_enabled", "webkit_mode")
+                      "sponsorblock_enabled", "webkit_mode", "show_comments")
         )
         self.save_button.set_sensitive(has_changes)

@@ -46,6 +46,7 @@ class MpvPlayer:
         self.window_mode = "windowed"
         self.window_scale_percent = 80
         self.sponsorblock_enabled = False
+        self.show_comments = False
 
         self.on_show_loading = None
         self.on_hide_loading = None
@@ -520,11 +521,13 @@ class MpvPlayer:
         window_mode: str,
         window_scale_percent: int,
         sponsorblock_enabled: bool = False,
+        show_comments: bool = False,
     ):
         self.quality_target = quality_target
         self.window_mode = window_mode
         self.window_scale_percent = window_scale_percent
         self.sponsorblock_enabled = sponsorblock_enabled
+        self.show_comments = show_comments
         self._sync_sponsorblock()
         if not self._is_playing:
             self.prewarm_mpv()
@@ -595,7 +598,7 @@ class MpvPlayer:
             self._playback_ended.clear()
             self._stream_started = False
             threading.Thread(
-                target=self._track_position, args=(url, start_pos, True), daemon=True
+                target=self._track_position, args=(url, start_pos, not self.show_comments), daemon=True
             ).start()
 
             if used_ipc:
@@ -710,7 +713,7 @@ class MpvPlayer:
             return False
         self._status("Lecture en cours (mode compatible).")
         threading.Thread(
-            target=self._track_position, args=(url, start_pos, True), daemon=True
+            target=self._track_position, args=(url, start_pos, not self.show_comments), daemon=True
         ).start()
         return_code = self._wait_with_timeout(process)
         self._tracking = False
