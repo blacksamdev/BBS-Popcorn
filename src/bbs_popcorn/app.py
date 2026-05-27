@@ -446,11 +446,13 @@ class YtMpvApp(Gtk.Application):
         normalized = self.player._prepare_url(url)
         print(f"[BBS Popcorn] Play: {url}")
         log_event(f"Play request: {url}")
-        # Stocker l'URL en historique sans titre — sera mis à jour par media-title via MPV
         self.history.add(normalized, title="")
         resume_pos = self.player._resume.get(normalized)
         if resume_pos:
             self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
+        # Mode commentaires : naviguer vers la page vidéo pour accéder aux commentaires
+        if self.settings.get("show_comments") and "watch?v=" in normalized:
+            self.webview.load_uri(normalized)
         self.player.play(url)
 
     def _on_url_bar_activate(self, entry):
