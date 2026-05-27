@@ -248,6 +248,12 @@ class YtMpvApp(Gtk.Application):
         self.win.set_child(vbox)
         self.win.connect("close-request", self._on_close_request)
         self.win.connect("destroy", self._on_shutdown)
+
+        # Fermer les popovers au clic dans la fenêtre (WebView capture les events)
+        click = Gtk.GestureClick()
+        click.connect("pressed", self._on_window_click)
+        self.win.add_controller(click)
+
         self.win.present()
 
         # ───────── Player ─────────
@@ -523,6 +529,12 @@ class YtMpvApp(Gtk.Application):
             self.player.play(url)
         else:
             self.webview.load_uri(url)
+
+    def _on_window_click(self, gesture, n_press, x, y):
+        if hasattr(self, '_settings_popover') and self._settings_popover.get_visible():
+            self._settings_popover.popdown()
+        if hasattr(self, '_history_popover') and self._history_popover.get_visible():
+            self._history_popover.popdown()
 
     def _on_close_request(self, _win):
         self.player.cleanup()
