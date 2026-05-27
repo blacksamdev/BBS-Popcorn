@@ -414,6 +414,11 @@ class YtMpvApp(Gtk.Application):
                 window.__bbsPopcornPlayerClick = function(e) {{
                     e.preventDefault();
                     e.stopPropagation();
+                    // Couper la vidéo WebKit avant de lancer MPV
+                    document.querySelectorAll('video').forEach(v => {{
+                        v.pause();
+                        v.muted = true;
+                    }});
                     window.webkit.messageHandlers.bbspopcorn.postMessage(location.href);
                 }};
                 player.addEventListener('click', window.__bbsPopcornPlayerClick, true);
@@ -485,7 +490,8 @@ class YtMpvApp(Gtk.Application):
             self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
         # Mode commentaires : naviguer vers la page vidéo pour accéder aux commentaires
         if self.settings.get("show_comments") and "watch?v=" in normalized:
-            self.webview.load_uri(normalized)
+            no_autoplay = normalized + "&autoplay=0"
+            self.webview.load_uri(no_autoplay)
         self.player.play(url)
 
     def _on_url_bar_activate(self, entry):
