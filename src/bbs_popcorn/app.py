@@ -821,6 +821,8 @@ class YtMpvApp(Gtk.Application):
         note = _STRINGS.get(selected, _STRINGS["fr"]).get("lang_restart", "")
         self.lang_restart_label.set_text(note)
         self.lang_restart_label.set_visible(True)
+        # Fermer le popover — restart note déjà visible, settings auto-sauvegardés
+        GLib.timeout_add(600, lambda: self._settings_popover.popdown() or False)
 
     def _sync_scale_sensitivity(self):
         enabled = self.pending_settings.get("window_mode", "windowed") != "fullscreen"
