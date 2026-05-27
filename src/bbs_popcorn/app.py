@@ -41,7 +41,6 @@ def load_settings() -> dict:
         "window_scale_percent": 80,
         "sponsorblock_enabled": False,
         "webkit_mode": "normal",
-        "show_comments": False,
     }
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -128,8 +127,16 @@ class YtMpvApp(Gtk.Application):
         self.btn_history = Gtk.MenuButton(label="🕐")
         self.btn_history.set_tooltip_text("Historique")
 
+        self._current_video_url = None
+        self._comments_nav = False
+
         btn_settings = Gtk.MenuButton(label="⚙")
         btn_settings.set_popover(self._build_settings_popover())
+
+        self.btn_comments = Gtk.Button(label="💬")
+        self.btn_comments.set_tooltip_text("Voir les commentaires de la vidéo en cours")
+        self.btn_comments.set_sensitive(False)
+        self.btn_comments.connect("clicked", self._on_comments_clicked)
 
         navbar.append(btn_back)
         navbar.append(btn_forward)
@@ -137,6 +144,7 @@ class YtMpvApp(Gtk.Application):
         navbar.append(btn_home)
         navbar.append(self.url_bar)
         navbar.append(self.btn_history)
+        navbar.append(self.btn_comments)
         navbar.append(btn_settings)
 
         # ───────── WebKit bridge ─────────
@@ -317,11 +325,20 @@ class YtMpvApp(Gtk.Application):
 
     # ───────── Navigation ─────────
 
+    def _on_comments_clicked(self, _btn):
+        if not self._current_video_url:
+            return
+        self._comments_nav = True
+        self.webview.load_uri(self._current_video_url)
+
     def on_load_changed(self, webview, event):
         if event == WebKit.LoadEvent.COMMITTED:
             self.url_bar.set_text(webview.get_uri())
         if event == WebKit.LoadEvent.FINISHED:
             self.inject_interceptor()
+            if self._comments_nav and "/watch" in (webview.get_uri() or ""):
+                self._comments_nav = False
+                self._inject_comments_css()
 
     def on_decide_policy(self, webview, decision, decision_type):
         if decision_type != WebKit.PolicyDecisionType.NAVIGATION_ACTION:
@@ -353,7 +370,6 @@ class YtMpvApp(Gtk.Application):
 
     def inject_interceptor(self):
         eco = "true" if self.settings.get("webkit_mode", "normal") == "eco" else "false"
-        comments = "true" if self.settings.get("show_comments", False) else "false"
         js = f"""
         (function () {{
             // Retirer l'ancien listener nommé si présent
@@ -502,6 +518,33 @@ class YtMpvApp(Gtk.Application):
 
     # ───────── JS messages ─────────
 
+    def _inject_comments_css(self):
+        """Cache le player YouTube et empêche toute lecture — ne laisse que les commentaires."""
+        js = """
+        (function() {
+            // Cacher le player et couper tout audio
+            const style = document.createElement('style');
+            style.textContent = `
+                ytd-player, #movie_player, #player-container-outer,
+                #player-container, ytd-masthead { }
+                ytd-player, #movie_player { display: none !important; }
+            `;
+            document.head.appendChild(style);
+
+            // Couper toutes les vidéos
+            function muteAll() {
+                document.querySelectorAll('video, audio').forEach(v => {
+                    v.pause(); v.muted = true; v.autoplay = false;
+                    v.play = () => Promise.resolve();
+                });
+            }
+            muteAll();
+            new MutationObserver(muteAll)
+                .observe(document.body, {childList: true, subtree: true});
+        })();
+        """
+        self.webview.evaluate_javascript(js, -1, None, None, None, None, None)
+
     def on_js_message(self, manager, message):
         url = message.to_string()
         normalized = self.player._prepare_url(url)
@@ -511,10 +554,10 @@ class YtMpvApp(Gtk.Application):
         resume_pos = self.player._resume.get(normalized)
         if resume_pos:
             self._set_status(f"Reprise a {format_timestamp(resume_pos)}...")
-        # Mode commentaires : naviguer vers la page vidéo pour accéder aux commentaires
-        if self.settings.get("show_comments") and "watch?v=" in normalized:
-            no_autoplay = normalized + "&autoplay=0"
-            self.webview.load_uri(no_autoplay)
+        # Tracker l'URL pour le bouton commentaires
+        if "watch?v=" in normalized:
+            self._current_video_url = normalized
+            GLib.idle_add(lambda: self.btn_comments.set_sensitive(True) or False)
         self.player.play(url)
 
     def _on_url_bar_activate(self, entry):
@@ -725,7 +768,6 @@ class YtMpvApp(Gtk.Application):
         comments_row.append(comments_label)
         self.comments_switch = Gtk.Switch()
         self.comments_switch.set_active(
-            self.pending_settings.get("show_comments", False)
         )
         self.comments_switch.set_tooltip_text(
             "Laisse la fenêtre YouTube visible pendant la lecture.\n"
@@ -785,7 +827,6 @@ class YtMpvApp(Gtk.Application):
         self._sync_save_button_state()
 
     def _on_comments_changed(self, switch, state):
-        self.pending_settings["show_comments"] = state
         self._sync_save_button_state()
 
     def _on_scale_changed(self, scale):
@@ -822,7 +863,6 @@ class YtMpvApp(Gtk.Application):
             window_mode=self.settings.get("window_mode", "windowed"),
             window_scale_percent=int(self.settings.get("window_scale_percent", 80)),
             sponsorblock_enabled=bool(self.settings.get("sponsorblock_enabled", False)),
-            show_comments=bool(self.settings.get("show_comments", False)),
         )
 
     def _sync_scale_sensitivity(self):
@@ -835,6 +875,6 @@ class YtMpvApp(Gtk.Application):
         has_changes = any(
             self.settings.get(k) != self.pending_settings.get(k)
             for k in ("quality_target", "window_mode", "window_scale_percent",
-                      "sponsorblock_enabled", "webkit_mode", "show_comments")
+                      "sponsorblock_enabled", "webkit_mode")
         )
         self.save_button.set_sensitive(has_changes)
