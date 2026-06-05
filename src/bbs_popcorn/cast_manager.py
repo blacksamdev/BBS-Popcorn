@@ -22,10 +22,14 @@ import pychromecast, sys
 host = sys.argv[1]
 port = int(sys.argv[2])
 url  = sys.argv[3]
-cast = pychromecast.Chromecast(host, port)
+chromecasts, browser = pychromecast.get_listed_chromecasts(known_hosts=[(host, port)])
+if not chromecasts:
+    sys.exit(1)
+cast = chromecasts[0]
 cast.wait()
 cast.media_controller.play_media(url, "video/mp4")
 cast.media_controller.block_until_active()
+pychromecast.discovery.stop_discovery(browser)
 sys.stdout.write("ok")
 """
 
@@ -55,9 +59,13 @@ _STOP_SCRIPT = """
 import pychromecast, sys
 host = sys.argv[1]
 port = int(sys.argv[2])
-cast = pychromecast.Chromecast(host, port)
+chromecasts, browser = pychromecast.get_listed_chromecasts(known_hosts=[(host, port)])
+if not chromecasts:
+    sys.exit(1)
+cast = chromecasts[0]
 cast.wait()
 cast.media_controller.stop()
+pychromecast.discovery.stop_discovery(browser)
 sys.stdout.write("ok")
 """
 
