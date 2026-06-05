@@ -133,6 +133,7 @@ class YtMpvApp(Gtk.Application):
 
         self._current_video_url = None
         self._comments_nav = False
+        self._cast_device = None
 
         btn_settings = Gtk.MenuButton(label="⚙")
         btn_settings.set_popover(self._build_settings_popover())
@@ -542,7 +543,28 @@ class YtMpvApp(Gtk.Application):
     def _on_cast_clicked(self, _btn):
         if not self._current_video_url:
             return
-        self._show_cast_popover()
+        if self._cast_device:
+            self._show_stop_cast_popover()
+        else:
+            self._show_cast_popover()
+
+    def _show_stop_cast_popover(self):
+        popover = Gtk.Popover()
+        popover.set_autohide(True)
+        popover.set_parent(self.btn_cast)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box.set_margin_top(8); box.set_margin_bottom(8)
+        box.set_margin_start(12); box.set_margin_end(12)
+        name = self._cast_device["name"]
+        lbl = Gtk.Label(label="Cast actif : " + name)
+        lbl.set_visible(True)
+        box.append(lbl)
+        btn_stop = Gtk.Button(label="Arreter le cast")
+        btn_stop.set_visible(True)
+        btn_stop.connect("clicked", self._on_cast_stop, popover)
+        box.append(btn_stop)
+        popover.set_child(box)
+        popover.popup()
 
     def _show_cast_popover(self):
         popover = Gtk.Popover()
@@ -593,14 +615,33 @@ class YtMpvApp(Gtk.Application):
                 GLib.idle_add(self._set_status, "Impossible de resoudre le flux.")
                 return
             GLib.idle_add(self._set_status, "Cast vers " + device["name"] + "...")
+            self._cast_device = device
+            GLib.idle_add(lambda: self.btn_cast.set_tooltip_text("Cast actif : " + device["name"] + " — cliquez pour arreter") or False)
             cast_manager.cast_async(
                 device["host"], stream_url,
                 callback=lambda ok, err: GLib.idle_add(
                     self._set_status,
-                    "Cast lance ! " if ok else "Erreur cast : " + err
+                    "Cast lance sur " + device["name"] + " !" if ok else "Erreur cast : " + err
                 )
             )
         threading.Thread(target=_resolve, daemon=True).start()
+
+    def _on_cast_stop(self, _btn, popover):
+        popover.popdown()
+        device = self._cast_device
+        if not device:
+            return
+        self._set_status("Arret du cast...")
+        cast_manager.stop_async(
+            device["host"],
+            callback=lambda ok, err: GLib.idle_add(self._on_cast_stopped, ok, err)
+        )
+
+    def _on_cast_stopped(self, ok, err):
+        self._cast_device = None
+        self.btn_cast.set_tooltip_text("Caster sur un Chromecast")
+        self._set_status("Cast arrete." if ok else "Erreur arret cast : " + err)
+        return False
 
     def _on_window_click(self, gesture, n_press, x, y):
 
