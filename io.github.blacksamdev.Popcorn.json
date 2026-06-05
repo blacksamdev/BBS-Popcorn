@@ -16,7 +16,6 @@
     "--talk-name=org.freedesktop.Flatpak",
     "--talk-name=org.freedesktop.secrets"
   ],
-
   "modules": [
     {
       "name": "yt-dlp",

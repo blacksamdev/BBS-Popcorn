@@ -10,6 +10,7 @@ from gi.repository import Gtk, WebKit, GLib, Gio
 
 from bbs_popcorn.history_store import HistoryStore
 from bbs_popcorn.i18n import t, set_lang
+from bbs_popcorn import cast_manager
 from bbs_popcorn.logging_utils import log_event
 from bbs_popcorn.player import MpvPlayer
 
@@ -141,6 +142,11 @@ class YtMpvApp(Gtk.Application):
         self.btn_comments.set_sensitive(False)
         self.btn_comments.connect("clicked", self._on_comments_clicked)
 
+        self.btn_cast = Gtk.Button(label="📺")
+        self.btn_cast.set_tooltip_text("Caster sur un Chromecast")
+        self.btn_cast.set_sensitive(False)
+        self.btn_cast.connect("clicked", self._on_cast_clicked)
+
         navbar.append(btn_back)
         navbar.append(btn_forward)
         navbar.append(btn_reload)
@@ -148,6 +154,7 @@ class YtMpvApp(Gtk.Application):
         navbar.append(self.url_bar)
         navbar.append(self.btn_history)
         navbar.append(self.btn_comments)
+        navbar.append(self.btn_cast)
         navbar.append(btn_settings)
 
         # ───────── WebKit bridge ─────────
@@ -511,6 +518,7 @@ class YtMpvApp(Gtk.Application):
         if "watch?v=" in normalized:
             self._current_video_url = normalized
             GLib.idle_add(lambda: self.btn_comments.set_sensitive(True) or False)
+            GLib.idle_add(lambda: self.btn_cast.set_sensitive(True) or False)
         self.player.play(url)
 
     def _on_url_bar_activate(self, entry):
@@ -531,7 +539,71 @@ class YtMpvApp(Gtk.Application):
         else:
             self.webview.load_uri(url)
 
+    def _on_cast_clicked(self, _btn):
+        if not self._current_video_url:
+            return
+        self._show_cast_popover()
+
+    def _show_cast_popover(self):
+        popover = Gtk.Popover()
+        popover.set_autohide(True)
+        popover.set_parent(self.btn_cast)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box.set_margin_top(8); box.set_margin_bottom(8)
+        box.set_margin_start(12); box.set_margin_end(12)
+        spinner = Gtk.Spinner()
+        spinner.start()
+        box.append(spinner)
+        box.append(Gtk.Label(label="Recherche des appareils..."))
+        popover.set_child(box)
+        popover.popup()
+        cast_manager.discover_async(
+            lambda d, e: GLib.idle_add(
+                self._update_cast_popover, popover, box, spinner, d, e
+            )
+        )
+
+    def _update_cast_popover(self, popover, box, spinner, devices, error):
+        spinner.stop()
+        while child := box.get_first_child():
+            box.remove(child)
+        if error == "missing":
+            box.append(Gtk.Label(label="pychromecast manquant."))
+            box.append(Gtk.Label(label="pip install pychromecast"))
+        elif not devices:
+            box.append(Gtk.Label(label="Aucun appareil trouve."))
+        else:
+            box.append(Gtk.Label(label="Caster sur :"))
+            for device in devices:
+                name = device["name"]
+                model = device["model"]
+                btn = Gtk.Button(label="\U0001f4fa  " + name + "  \u2014  " + model)
+                btn.connect("clicked", self._on_cast_to_device, device, popover)
+                box.append(btn)
+        return False
+
+    def _on_cast_to_device(self, _btn, device, popover):
+        import threading
+        popover.popdown()
+        self._set_status("Resolution du flux...")
+        url = self._current_video_url
+        def _resolve():
+            stream_url = cast_manager.resolve_stream_url(url)
+            if not stream_url:
+                GLib.idle_add(self._set_status, "Impossible de resoudre le flux.")
+                return
+            GLib.idle_add(self._set_status, "Cast vers " + device["name"] + "...")
+            cast_manager.cast_async(
+                device["host"], stream_url,
+                callback=lambda ok, err: GLib.idle_add(
+                    self._set_status,
+                    "Cast lance ! " if ok else "Erreur cast : " + err
+                )
+            )
+        threading.Thread(target=_resolve, daemon=True).start()
+
     def _on_window_click(self, gesture, n_press, x, y):
+
         if hasattr(self, '_settings_popover') and self._settings_popover.get_visible():
             self._settings_popover.popdown()
         if hasattr(self, '_history_popover') and self._history_popover.get_visible():
