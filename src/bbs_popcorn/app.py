@@ -618,7 +618,7 @@ class YtMpvApp(Gtk.Application):
             self._cast_device = device
             GLib.idle_add(lambda: self.btn_cast.set_tooltip_text("Cast actif : " + device["name"] + " — cliquez pour arreter") or False)
             cast_manager.cast_async(
-                device["host"], stream_url,
+                device["host"], stream_url, port=device.get("port", 8009),
                 callback=lambda ok, err: GLib.idle_add(
                     self._set_status,
                     "Cast lance sur " + device["name"] + " !" if ok else "Erreur cast : " + err
@@ -632,8 +632,9 @@ class YtMpvApp(Gtk.Application):
         if not device:
             return
         self._set_status("Arret du cast...")
+        GLib.idle_add(self._hide_loading_only)
         cast_manager.stop_async(
-            device["host"],
+            device["host"], port=device.get("port", 8009),
             callback=lambda ok, err: GLib.idle_add(self._on_cast_stopped, ok, err)
         )
 
