@@ -521,8 +521,8 @@ class YtMpvApp(Gtk.Application):
             GLib.idle_add(lambda: self.btn_comments.set_sensitive(True) or False)
         if self._cast_device:
             self._cast_video(url)
-        else:
-            self.player.play(url)
+            return
+        self.player.play(url)
 
     def _on_url_bar_activate(self, entry):
         url = entry.get_text().strip()
@@ -538,9 +538,6 @@ class YtMpvApp(Gtk.Application):
             resume_pos = self.player._resume.get(normalized)
             if resume_pos:
                 self._set_status(t("status_resume", time=format_timestamp(resume_pos)))
-            if self._cast_device:
-            self._cast_video(url)
-        else:
             self.player.play(url)
         else:
             self.webview.load_uri(url)
@@ -549,7 +546,6 @@ class YtMpvApp(Gtk.Application):
         self._show_cast_popover()
 
     def _cast_video(self, url):
-        import threading
         normalized = self.player._prepare_url(url)
         self.history.add(normalized, title="")
         device = self._cast_device
@@ -576,22 +572,20 @@ class YtMpvApp(Gtk.Application):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_margin_top(8); box.set_margin_bottom(8)
         box.set_margin_start(12); box.set_margin_end(12)
-        # Cet appareil (retour MPV)
-        active = self._cast_device
+        # Header
         lbl_title = Gtk.Label(label="Sortie video :")
         lbl_title.set_xalign(0)
-        lbl_title.set_visible(True)
         box.append(lbl_title)
-        btn_local = Gtk.Button(label=("✓  BBS pOpcOrn (cet appareil)" if not active else "   BBS pOpcOrn (cet appareil)"))
-        btn_local.set_visible(True)
+        # Cet appareil
+        active = self._cast_device
+        prefix_local = "\u2713  " if not active else "   "
+        btn_local = Gtk.Button(label=prefix_local + "BBS pOpcOrn (cet appareil)")
         btn_local.connect("clicked", self._on_cast_select_local, popover)
         box.append(btn_local)
         box.append(Gtk.Separator())
         spinner = Gtk.Spinner()
         spinner.start()
-        spinner.set_visible(True)
         lbl_search = Gtk.Label(label="Recherche...")
-        lbl_search.set_visible(True)
         box.append(spinner)
         box.append(lbl_search)
         popover.set_child(box)
@@ -602,64 +596,41 @@ class YtMpvApp(Gtk.Application):
             )
         )
 
-    def _update_cast_popover(self, popover, box, spinner, devices, error):
+    def _update_cast_popover(self, popover, box, spinner, lbl_search, devices, error):
         spinner.stop()
-        while child := box.get_first_child():
-            box.remove(child)
+        spinner.set_visible(False)
+        lbl_search.set_visible(False)
+        active = self._cast_device
         if error == "missing":
-            box.append(Gtk.Label(label="pychromecast manquant."))
-            box.append(Gtk.Label(label="pip install pychromecast"))
+            lbl = Gtk.Label(label="pychromecast manquant sur le host.")
+            box.append(lbl)
+            lbl2 = Gtk.Label(label="pip install pychromecast")
+            box.append(lbl2)
         elif not devices:
-            box.append(Gtk.Label(label="Aucun appareil trouve."))
+            lbl = Gtk.Label(label="Aucun Chromecast trouve.")
+            box.append(lbl)
         else:
-            box.append(Gtk.Label(label="Caster sur :"))
             for device in devices:
                 name = device["name"]
                 model = device["model"]
-                btn = Gtk.Button(label="\U0001f4fa  " + name + "  \u2014  " + model)
+                is_active = active and active.get("host") == device.get("host")
+                prefix = "\u2713  " if is_active else "   "
+                btn = Gtk.Button(label="\U0001f4fa " + prefix + name + "  \u2014  " + model)
                 btn.connect("clicked", self._on_cast_to_device, device, popover)
                 box.append(btn)
         return False
 
-    def _on_cast_to_device(self, _btn, device, popover):
-        import threading
+    def _on_cast_select_local(self, _btn, popover):
         popover.popdown()
-        self._set_status("Resolution du flux...")
-        url = self._current_video_url
-        def _resolve():
-            stream_url = cast_manager.resolve_stream_url(url)
-            if not stream_url:
-                GLib.idle_add(self._set_status, "Impossible de resoudre le flux.")
-                return
-            GLib.idle_add(self._set_status, "Cast vers " + device["name"] + "...")
-            self._cast_device = device
-            GLib.idle_add(lambda: self.btn_cast.set_tooltip_text("Cast actif : " + device["name"] + " — cliquez pour arreter") or False)
-            cast_manager.cast_async(
-                device["host"], stream_url, port=device.get("port", 8009),
-                callback=lambda ok, err: GLib.idle_add(
-                    self._set_status,
-                    "Cast lance sur " + device["name"] + " !" if ok else "Erreur cast : " + err
-                )
-            )
-        threading.Thread(target=_resolve, daemon=True).start()
-
-    def _on_cast_stop(self, _btn, popover):
-        popover.popdown()
-        device = self._cast_device
-        if not device:
-            return
-        self._set_status("Arret du cast...")
-        GLib.idle_add(self._hide_loading_only)
-        cast_manager.stop_async(
-            device["host"], port=device.get("port", 8009),
-            callback=lambda ok, err: GLib.idle_add(self._on_cast_stopped, ok, err)
-        )
-
-    def _on_cast_stopped(self, ok, err):
         self._cast_device = None
         self.btn_cast.set_tooltip_text("Caster sur un Chromecast")
-        self._set_status("Cast arrete." if ok else "Erreur arret cast : " + err)
-        return False
+        self._set_status("Sortie video : BBS pOpcOrn (MPV).")
+
+    def _on_cast_to_device(self, _btn, device, popover):
+        popover.popdown()
+        self._cast_device = device
+        self.btn_cast.set_tooltip_text("Sortie video : " + device["name"])
+        self._set_status("Mode cast : " + device["name"] + ". Prochaine video castee.")
 
     def _on_window_click(self, gesture, n_press, x, y):
 
@@ -767,10 +738,7 @@ class YtMpvApp(Gtk.Application):
         resume_pos = self.player._resume.get(url)
         if resume_pos:
             self._set_status(t("status_resume", time=format_timestamp(resume_pos)))
-        if self._cast_device:
-            self._cast_video(url)
-        else:
-            self.player.play(url)
+        self.player.play(url)
 
     def _on_history_clear(self, _btn):
         self.history.clear()
