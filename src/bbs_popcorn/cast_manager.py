@@ -22,7 +22,7 @@ import pychromecast, sys
 host = sys.argv[1]
 port = int(sys.argv[2])
 url  = sys.argv[3]
-chromecasts, browser = pychromecast.get_listed_chromecasts(known_hosts=[(host, port)])
+chromecasts, browser = pychromecast.get_listed_chromecasts(known_hosts=[host])
 if not chromecasts:
     sys.exit(1)
 cast = chromecasts[0]
@@ -59,7 +59,7 @@ _STOP_SCRIPT = """
 import pychromecast, sys
 host = sys.argv[1]
 port = int(sys.argv[2])
-chromecasts, browser = pychromecast.get_listed_chromecasts(known_hosts=[(host, port)])
+chromecasts, browser = pychromecast.get_listed_chromecasts(known_hosts=[host])
 if not chromecasts:
     sys.exit(1)
 cast = chromecasts[0]
