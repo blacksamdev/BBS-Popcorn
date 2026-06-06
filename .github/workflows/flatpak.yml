@@ -175,6 +175,7 @@ jobs:
           cp -r repo_bundle/repo/* pages/
           cp repo_bundle/repo-signing.key pages/ || true
           cp repo_bundle/bbs-popcorn.flatpakrepo pages/ || true
+          git show origin/main:data/splash.png > pages/splash.png || true
 
       - name: Commit and push GitHub Pages
         run: |
