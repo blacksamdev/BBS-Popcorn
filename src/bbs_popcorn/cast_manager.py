@@ -52,7 +52,10 @@ chromecasts, browser = pychromecast.get_chromecasts()
 cast = next((c for c in chromecasts if c.cast_info.host == host), None)
 if cast:
     cast.wait()
+    try:
     cast.media_controller.stop()
+except Exception:
+    pass
 pychromecast.discovery.stop_discovery(browser)
 sys.stdout.write("ok")
 """
