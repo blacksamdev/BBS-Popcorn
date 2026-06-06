@@ -134,6 +134,7 @@ class YtMpvApp(Gtk.Application):
         self._current_video_url = None
         self._comments_nav = False
         self._cast_device = None
+        self._cast_daemon = cast_manager.CastDaemon()
 
         btn_settings = Gtk.MenuButton(label="⚙")
         btn_settings.set_popover(self._build_settings_popover())
@@ -624,6 +625,7 @@ class YtMpvApp(Gtk.Application):
         popover.popdown()
         device = self._cast_device
         self._cast_device = None
+        self._cast_daemon = cast_manager.CastDaemon()
         self.btn_cast.set_tooltip_text("Caster sur un Chromecast")
         self._set_status("Arret du cast...")
         if device:
@@ -640,7 +642,12 @@ class YtMpvApp(Gtk.Application):
         self._cast_device = device
         self.btn_cast.set_tooltip_text("Sortie video : " + device["name"])
         self._set_status("Mode cast : " + device["name"] + ". Prochaine video castee.")
-        cast_manager.show_splash_async(device["host"], port=device.get("port", 8009))
+        def _on_daemon_ready(ok, err):
+            if ok:
+                self._cast_daemon.splash()
+            else:
+                GLib.idle_add(self._set_status, "Cast : " + (err or "erreur connexion"))
+        self._cast_daemon.start_async(device["host"], callback=lambda ok, e: GLib.idle_add(_on_daemon_ready, ok, e))
 
     def _on_window_click(self, gesture, n_press, x, y):
 
@@ -650,6 +657,8 @@ class YtMpvApp(Gtk.Application):
             self._history_popover.popdown()
 
     def _on_close_request(self, _win):
+        if self._cast_daemon.is_running():
+            self._cast_daemon.quit()
         self.player.cleanup()
         self.quit()
         return False
