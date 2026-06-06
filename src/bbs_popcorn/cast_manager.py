@@ -57,15 +57,12 @@ sys.stdout.write("ok")
 _SPLASH_SCRIPT = """
 import pychromecast, sys
 host = sys.argv[1]
-chromecasts, browser = pychromecast.get_chromecasts()
-cast = next((c for c in chromecasts if c.cast_info.host == host), None)
-if cast:
-    cast.wait()
-    cast.media_controller.play_media(
-        "https://blacksamdev.github.io/BBS-Popcorn/splash.png",
-        "image/png"
-    )
-pychromecast.discovery.stop_discovery(browser)
+cast = pychromecast.Chromecast(host)
+cast.wait()
+cast.media_controller.play_media(
+    "https://blacksamdev.github.io/BBS-Popcorn/splash.png",
+    "image/png"
+)
 sys.stdout.write("ok")
 """
 
