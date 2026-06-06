@@ -640,6 +640,7 @@ class YtMpvApp(Gtk.Application):
         self._cast_device = device
         self.btn_cast.set_tooltip_text("Sortie video : " + device["name"])
         self._set_status("Mode cast : " + device["name"] + ". Prochaine video castee.")
+        cast_manager.show_splash_async(device["host"], port=device.get("port", 8009))
 
     def _on_window_click(self, gesture, n_press, x, y):
 

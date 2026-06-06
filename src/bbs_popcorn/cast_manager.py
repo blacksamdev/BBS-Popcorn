@@ -6,7 +6,7 @@ import subprocess
 import threading
 import json
 
-SPLASH_URL = "https://raw.githubusercontent.com/blacksamdev/BBS-Popcorn/main/data/splash.png"
+SPLASH_URL = "https://blacksamdev.github.io/BBS-Popcorn/splash.png"
 
 _DISCOVER_SCRIPT = """
 import pychromecast, json, sys
@@ -20,10 +20,9 @@ pychromecast.discovery.stop_discovery(browser)
 """
 
 _CAST_SCRIPT = """
-import pychromecast, sys, time
+import pychromecast, sys
 host = sys.argv[1]
 port = int(sys.argv[2])
-show_splash = sys.argv[3] == "1"
 url = sys.stdin.read().strip()
 chromecasts, browser = pychromecast.get_chromecasts()
 cast = next((c for c in chromecasts if c.cast_info.host == host), None)
@@ -33,12 +32,6 @@ if not cast:
     pychromecast.discovery.stop_discovery(browser)
     sys.exit(1)
 cast.wait()
-if show_splash:
-    cast.media_controller.play_media(
-        "https://raw.githubusercontent.com/blacksamdev/BBS-Popcorn/main/data/splash.png",
-        "image/png"
-    )
-    time.sleep(2.5)
 cast.media_controller.play_media(url, "video/mp4")
 cast.media_controller.block_until_active()
 pychromecast.discovery.stop_discovery(browser)
@@ -59,6 +52,39 @@ except Exception:
 pychromecast.discovery.stop_discovery(browser)
 sys.stdout.write("ok")
 """
+
+
+_SPLASH_SCRIPT = """
+import pychromecast, sys
+host = sys.argv[1]
+chromecasts, browser = pychromecast.get_chromecasts()
+cast = next((c for c in chromecasts if c.cast_info.host == host), None)
+if cast:
+    cast.wait()
+    cast.media_controller.play_media(
+        "https://blacksamdev.github.io/BBS-Popcorn/splash.png",
+        "image/png"
+    )
+pychromecast.discovery.stop_discovery(browser)
+sys.stdout.write("ok")
+"""
+
+
+def show_splash_async(host: str, port: int = 8009, callback=None):
+    """Affiche le splash BBS pOpcOrn sur le Chromecast."""
+    def _run():
+        try:
+            result = subprocess.run(
+                ["flatpak-spawn", "--host", "python3", "-c",
+                 _SPLASH_SCRIPT, host],
+                capture_output=True, text=True, timeout=20
+            )
+            if callback:
+                callback(result.returncode == 0, result.stderr.strip())
+        except Exception as exc:
+            if callback:
+                callback(False, str(exc))
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def discover_async(callback):
@@ -82,14 +108,13 @@ def discover_async(callback):
     threading.Thread(target=_run, daemon=True).start()
 
 
-def cast_async(host: str, stream_url: str, port: int = 8009,
-               show_splash: bool = True, callback=None):
+def cast_async(host: str, stream_url: str, port: int = 8009, callback=None):
     """Envoie le flux au Chromecast. callback(ok: bool, error: str)"""
     def _run():
         try:
             result = subprocess.run(
                 ["flatpak-spawn", "--host", "python3", "-c",
-                 _CAST_SCRIPT, host, str(port), "1" if show_splash else "0"],
+                 _CAST_SCRIPT, host, str(port)],
                 input=stream_url,
                 capture_output=True, text=True, timeout=60
             )
