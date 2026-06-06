@@ -1,6 +1,7 @@
 """
 Gestion du cast Chromecast pour BBS pOpcOrn.
-Utilise pychromecast via flatpak-spawn --host (installe sur le host).
+Utilise pychromecast via flatpak-spawn --host.
+Connexion directe par IP pour toutes les operations (rapide, sans decouverte mDNS).
 """
 import subprocess
 import threading
@@ -19,41 +20,6 @@ sys.stdout.flush()
 pychromecast.discovery.stop_discovery(browser)
 """
 
-_CAST_SCRIPT = """
-import pychromecast, sys
-host = sys.argv[1]
-port = int(sys.argv[2])
-url = sys.stdin.read().strip()
-chromecasts, browser = pychromecast.get_chromecasts()
-cast = next((c for c in chromecasts if c.cast_info.host == host), None)
-if not cast:
-    hosts = [c.cast_info.host for c in chromecasts]
-    sys.stderr.write("device not found. found: " + str(hosts))
-    pychromecast.discovery.stop_discovery(browser)
-    sys.exit(1)
-cast.wait()
-cast.media_controller.play_media(url, "video/mp4")
-cast.media_controller.block_until_active()
-pychromecast.discovery.stop_discovery(browser)
-sys.stdout.write("ok")
-"""
-
-_STOP_SCRIPT = """
-import pychromecast, sys
-host = sys.argv[1]
-chromecasts, browser = pychromecast.get_chromecasts()
-cast = next((c for c in chromecasts if c.cast_info.host == host), None)
-if cast:
-    cast.wait()
-    try:
-    cast.media_controller.stop()
-except Exception:
-    pass
-pychromecast.discovery.stop_discovery(browser)
-sys.stdout.write("ok")
-"""
-
-
 _SPLASH_SCRIPT = """
 import pychromecast, sys
 host = sys.argv[1]
@@ -66,22 +32,28 @@ cast.media_controller.play_media(
 sys.stdout.write("ok")
 """
 
+_CAST_SCRIPT = """
+import pychromecast, sys
+host = sys.argv[1]
+url = sys.stdin.read().strip()
+cast = pychromecast.Chromecast(host)
+cast.wait()
+cast.media_controller.play_media(url, "video/mp4")
+cast.media_controller.block_until_active()
+sys.stdout.write("ok")
+"""
 
-def show_splash_async(host: str, port: int = 8009, callback=None):
-    """Affiche le splash BBS pOpcOrn sur le Chromecast."""
-    def _run():
-        try:
-            result = subprocess.run(
-                ["flatpak-spawn", "--host", "python3", "-c",
-                 _SPLASH_SCRIPT, host],
-                capture_output=True, text=True, timeout=20
-            )
-            if callback:
-                callback(result.returncode == 0, result.stderr.strip())
-        except Exception as exc:
-            if callback:
-                callback(False, str(exc))
-    threading.Thread(target=_run, daemon=True).start()
+_STOP_SCRIPT = """
+import pychromecast, sys
+host = sys.argv[1]
+cast = pychromecast.Chromecast(host)
+cast.wait()
+try:
+    cast.quit_app()
+except Exception:
+    pass
+sys.stdout.write("ok")
+"""
 
 
 def discover_async(callback):
@@ -105,13 +77,30 @@ def discover_async(callback):
     threading.Thread(target=_run, daemon=True).start()
 
 
-def cast_async(host: str, stream_url: str, port: int = 8009, callback=None):
-    """Envoie le flux au Chromecast. callback(ok: bool, error: str)"""
+def show_splash_async(host: str, port: int = 8009, callback=None):
+    """Affiche le splash BBS pOpcOrn sur le Chromecast (connexion directe)."""
     def _run():
         try:
             result = subprocess.run(
                 ["flatpak-spawn", "--host", "python3", "-c",
-                 _CAST_SCRIPT, host, str(port)],
+                 _SPLASH_SCRIPT, host],
+                capture_output=True, text=True, timeout=15
+            )
+            if callback:
+                callback(result.returncode == 0, result.stderr.strip())
+        except Exception as exc:
+            if callback:
+                callback(False, str(exc))
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def cast_async(host: str, stream_url: str, port: int = 8009, callback=None):
+    """Envoie le flux au Chromecast (connexion directe)."""
+    def _run():
+        try:
+            result = subprocess.run(
+                ["flatpak-spawn", "--host", "python3", "-c",
+                 _CAST_SCRIPT, host],
                 input=stream_url,
                 capture_output=True, text=True, timeout=60
             )
@@ -124,12 +113,13 @@ def cast_async(host: str, stream_url: str, port: int = 8009, callback=None):
 
 
 def stop_async(host: str, port: int = 8009, callback=None):
-    """Stoppe le cast sur l'appareil host."""
+    """Stoppe le cast (connexion directe)."""
     def _run():
         try:
             result = subprocess.run(
-                ["flatpak-spawn", "--host", "python3", "-c", _STOP_SCRIPT, host],
-                capture_output=True, text=True, timeout=20
+                ["flatpak-spawn", "--host", "python3", "-c",
+                 _STOP_SCRIPT, host],
+                capture_output=True, text=True, timeout=15
             )
             if callback:
                 callback(result.returncode == 0, result.stderr.strip())
@@ -140,7 +130,7 @@ def stop_async(host: str, port: int = 8009, callback=None):
 
 
 def resolve_stream_url(video_url: str) -> str | None:
-    """Resout l'URL YouTube en flux h264 direct via yt-dlp (sandbox)."""
+    """Resout l'URL YouTube en flux h264 direct via yt-dlp."""
     try:
         result = subprocess.run(
             ["yt-dlp", "--no-playlist", "--dump-single-json", video_url],
