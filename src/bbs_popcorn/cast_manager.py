@@ -94,17 +94,23 @@ def stop_async(host: str, port: int = 8009, callback=None):
 def cast_async(host: str, stream_url: str, port: int = 8009, callback=None):
     """Envoie le flux au Chromecast. callback(ok: bool, error: str)"""
     def _run():
+        import tempfile, os
+        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
+        tmp.write(stream_url)
+        tmp.close()
         try:
             result = subprocess.run(
                 ["flatpak-spawn", "--host", "python3", "-c",
-                 _CAST_SCRIPT, host, str(port), stream_url],
-                capture_output=True, text=True, timeout=30
+                 _CAST_SCRIPT, host, str(port), tmp.name],
+                capture_output=True, text=True, timeout=60
             )
             if callback:
                 callback(result.returncode == 0, result.stderr.strip())
         except Exception as exc:
             if callback:
                 callback(False, str(exc))
+        finally:
+            os.unlink(tmp.name)
     threading.Thread(target=_run, daemon=True).start()
 
 
