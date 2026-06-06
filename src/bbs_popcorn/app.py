@@ -622,9 +622,18 @@ class YtMpvApp(Gtk.Application):
 
     def _on_cast_select_local(self, _btn, popover):
         popover.popdown()
+        device = self._cast_device
         self._cast_device = None
         self.btn_cast.set_tooltip_text("Caster sur un Chromecast")
-        self._set_status("Sortie video : BBS pOpcOrn (MPV).")
+        self._set_status("Arret du cast...")
+        if device:
+            cast_manager.stop_async(
+                device["host"], port=device.get("port", 8009),
+                callback=lambda ok, err: GLib.idle_add(
+                    self._set_status,
+                    "Sortie video : BBS pOpcOrn (MPV)." if ok else "Arret cast : " + err
+                )
+            )
 
     def _on_cast_to_device(self, _btn, device, popover):
         popover.popdown()

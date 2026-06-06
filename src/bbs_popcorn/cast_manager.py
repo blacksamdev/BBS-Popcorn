@@ -6,7 +6,7 @@ import subprocess
 import threading
 import json
 
-SPLASH_URL = "https://raw.githubusercontent.com/blacksamdev/BBS-Popcorn/main/data/splash.png"
+SPLASH_URL = "https://blacksamdev.github.io/BBS-Popcorn/splash.png"
 
 _DISCOVER_SCRIPT = """
 import pychromecast, json, sys
@@ -35,7 +35,7 @@ if not cast:
 cast.wait()
 if show_splash:
     cast.media_controller.play_media(
-        "https://raw.githubusercontent.com/blacksamdev/BBS-Popcorn/main/data/splash.png",
+        "https://blacksamdev.github.io/BBS-Popcorn/splash.png",
         "image/png"
     )
     time.sleep(2.5)
