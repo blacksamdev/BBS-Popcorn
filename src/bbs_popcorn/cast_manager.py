@@ -80,7 +80,8 @@ class CastDaemon:
 
     def __init__(self):
         self._proc = None
-        self._lock = threading.Lock()
+        self._write_lock = threading.Lock()  # protege les ecritures stdin
+        self._read_lock = threading.Lock()   # protege les lectures stdout
 
     def start_async(self, host: str, callback):
         """Lance le daemon. callback(ok: bool, error: str)"""
@@ -97,7 +98,7 @@ class CastDaemon:
                 )
                 line = proc.stdout.readline().strip()
                 if line == "ready":
-                    with self._lock:
+                    with self._write_lock:
                         self._proc = proc
                     callback(True, None)
                 else:
@@ -107,13 +108,24 @@ class CastDaemon:
                 callback(False, str(exc))
         threading.Thread(target=_run, daemon=True).start()
 
-    def _send(self, cmd: str) -> tuple:
-        with self._lock:
+    def _write(self, cmd: str) -> bool:
+        """Envoie une commande (lock ecriture seulement)."""
+        with self._write_lock:
             if not self._proc or self._proc.poll() is not None:
-                return False, "daemon not running"
+                return False
             try:
                 self._proc.stdin.write(cmd + "\n")
                 self._proc.stdin.flush()
+                return True
+            except Exception:
+                return False
+
+    def _send(self, cmd: str) -> tuple:
+        """Envoie commande et attend reponse."""
+        with self._read_lock:
+            if not self._write(cmd):
+                return False, "daemon not running"
+            try:
                 response = self._proc.stdout.readline().strip()
                 return response == "ok", response
             except Exception as exc:
@@ -130,21 +142,21 @@ class CastDaemon:
         threading.Thread(target=_run, daemon=True).start()
 
     def stop(self):
-        return self._send("STOP")
+        """Envoie STOP sans attendre reponse (evite deadlock avec cast_async)."""
+        self._write("STOP")
 
     def quit(self):
-        with self._lock:
+        self._write("QUIT")
+        with self._write_lock:
             if self._proc:
                 try:
-                    self._proc.stdin.write("QUIT\n")
-                    self._proc.stdin.flush()
                     self._proc.terminate()
                 except Exception:
                     pass
                 self._proc = None
 
     def is_running(self) -> bool:
-        with self._lock:
+        with self._write_lock:
             return self._proc is not None and self._proc.poll() is None
 
 
