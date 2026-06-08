@@ -144,6 +144,18 @@ class CastDaemon:
         """Envoie STOP sans attendre reponse (evite deadlock avec cast_async)."""
         self._write("STOP")
 
+    def pause(self):
+        self._write("PAUSE")
+
+    def resume(self):
+        self._write("RESUME")
+
+    def vol_up(self):
+        self._write("VOL_UP")
+
+    def vol_down(self):
+        self._write("VOL_DOWN")
+
     def quit(self):
         self._write("QUIT")
         with self._write_lock:

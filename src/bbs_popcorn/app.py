@@ -135,6 +135,7 @@ class YtMpvApp(Gtk.Application):
         self._comments_nav = False
         self._cast_device = None
         self._cast_daemon = cast_manager.CastDaemon()
+        self._cast_paused = False
 
         btn_settings = Gtk.MenuButton(label="⚙")
         btn_settings.set_popover(self._build_settings_popover())
@@ -579,11 +580,7 @@ class YtMpvApp(Gtk.Application):
         box.append(lbl_title)
         # Cet appareil
         active = self._cast_device
-        prefix_local = "\u2713  " if not active else "   "
-        btn_local = Gtk.Button(label=prefix_local + "BBS pOpcOrn (cet appareil)")
-        btn_local.connect("clicked", self._on_cast_select_local, popover)
-        box.append(btn_local)
-        box.append(Gtk.Separator())
+
         spinner = Gtk.Spinner()
         spinner.start()
         lbl_search = Gtk.Label(label="Recherche...")
@@ -626,18 +623,45 @@ class YtMpvApp(Gtk.Application):
         device = self._cast_device
         self._cast_device = None
         self._cast_daemon = cast_manager.CastDaemon()
+        self._cast_paused = False
         self.btn_cast.set_tooltip_text("Caster sur un Chromecast")
         self._set_status("Arret du cast...")
         if device:
             self._cast_daemon.stop()
         self._cast_daemon.quit()
         self._cast_daemon = cast_manager.CastDaemon()
+        self._cast_paused = False
+
+    def _on_cast_pause_clicked(self, _btn):
+        if self._cast_paused:
+            self._cast_daemon.resume()
+            self._btn_cast_pause.set_label("⏸")
+            self._cast_paused = False
+        else:
+            self._cast_daemon.pause()
+            self._btn_cast_pause.set_label("▶")
+            self._cast_paused = True
+
+    def _on_cast_release(self, _btn):
+        self._cast_device = None
+        self._cast_paused = False
+        self._btn_cast_pause.set_label("⏸")
+        self.btn_cast.set_tooltip_text("Caster sur un Chromecast")
+        self._cast_revealer.set_reveal_child(False)
+        self._set_status("Sortie video : BBS pOpcOrn (MPV).")
+        self._cast_daemon.stop()
+        self._cast_daemon.quit()
+        self._cast_daemon = cast_manager.CastDaemon()
 
     def _on_cast_to_device(self, _btn, device, popover):
         popover.popdown()
         self._cast_device = device
+        self._cast_paused = False
+        self._btn_cast_pause.set_label("⏸")
         self.btn_cast.set_tooltip_text("Sortie video : " + device["name"])
-        self._set_status("Mode cast : " + device["name"] + ". Prochaine video castee.")
+        self._cast_bar_label.set_label("📺  " + device["name"] + "  —  prochaine vidéo castée")
+        self._cast_revealer.set_reveal_child(True)
+        self._set_status("Mode cast : " + device["name"] + ".")
         def _on_daemon_ready(ok, err):
             if ok:
                 self._cast_daemon.splash()
