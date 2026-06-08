@@ -69,6 +69,29 @@ for line in sys.stdin:
         except Exception:
             sys.stdout.write("ok\\n")
         sys.stdout.flush()
+    elif cmd == "PAUSE":
+        try:
+            cast.media_controller.pause()
+        except Exception:
+            pass
+    elif cmd == "RESUME":
+        try:
+            cast.media_controller.play()
+        except Exception:
+            pass
+    elif cmd == "VOL_UP":
+        try:
+            vol = min((cast.status.volume_level or 0.5) + 0.1, 1.0)
+            cast.set_volume(vol)
+        except Exception:
+            pass
+    elif cmd == "VOL_DOWN":
+        try:
+            vol = max((cast.status.volume_level or 0.5) - 0.1, 0.0)
+            cast.set_volume(vol)
+        except Exception:
+            pass
+
 
 pychromecast.discovery.stop_discovery(browser)
 """
