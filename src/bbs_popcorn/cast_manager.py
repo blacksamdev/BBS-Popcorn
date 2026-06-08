@@ -58,7 +58,6 @@ for line in sys.stdin:
         url = cmd[5:]
         try:
             cast.media_controller.play_media(url, "video/mp4")
-            cast.media_controller.block_until_active()
             sys.stdout.write("ok\\n")
         except Exception as e:
             sys.stdout.write("error: " + str(e) + "\\n")
