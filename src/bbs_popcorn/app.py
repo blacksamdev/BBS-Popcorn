@@ -557,8 +557,8 @@ class YtMpvApp(Gtk.Application):
                 GLib.idle_add(self._set_status, "Impossible de resoudre le flux.")
                 return
             GLib.idle_add(self._set_status, "Cast vers " + device["name"] + "...")
-            cast_manager.cast_async(
-                device["host"], stream_url, port=device.get("port", 8009),
+            self._cast_daemon.cast_async(
+                stream_url,
                 callback=lambda ok, err: GLib.idle_add(
                     self._set_status,
                     "Lecture sur " + device["name"] + " !" if ok else "Erreur cast : " + err
@@ -629,13 +629,9 @@ class YtMpvApp(Gtk.Application):
         self.btn_cast.set_tooltip_text("Caster sur un Chromecast")
         self._set_status("Arret du cast...")
         if device:
-            cast_manager.stop_async(
-                device["host"], port=device.get("port", 8009),
-                callback=lambda ok, err: GLib.idle_add(
-                    self._set_status,
-                    "Sortie video : BBS pOpcOrn (MPV)." if ok else "Arret cast : " + err
-                )
-            )
+            self._cast_daemon.stop()
+        self._cast_daemon.quit()
+        self._cast_daemon = cast_manager.CastDaemon()
 
     def _on_cast_to_device(self, _btn, device, popover):
         popover.popdown()
