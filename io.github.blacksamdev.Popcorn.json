@@ -74,6 +74,7 @@
         "install -Dm644 src/bbs_popcorn/history_store.py /app/lib/bbs-popcorn/bbs_popcorn/history_store.py",
         "install -Dm644 src/bbs_popcorn/i18n.py /app/lib/bbs-popcorn/bbs_popcorn/i18n.py",
         "install -Dm644 src/bbs_popcorn/cast_manager.py /app/lib/bbs-popcorn/bbs_popcorn/cast_manager.py",
+        "install -Dm644 data/chromecast.png /app/share/bbs-popcorn/chromecast.png",
         "install -Dm644 data/io.github.blacksamdev.Popcorn.desktop /app/share/applications/io.github.blacksamdev.Popcorn.desktop",
         "install -Dm644 data/io.github.blacksamdev.Popcorn.svg /app/share/icons/hicolor/scalable/apps/io.github.blacksamdev.Popcorn.svg"
       ],
