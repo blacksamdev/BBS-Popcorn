@@ -6,7 +6,6 @@ import subprocess
 import threading
 import json
 
-SPLASH_URL = "https://blacksamdev.github.io/BBS-Popcorn/splash.png"
 
 _DISCOVER_SCRIPT = """
 import pychromecast, json, sys
@@ -44,10 +43,8 @@ for line in sys.stdin:
         continue
     if cmd == "QUIT":
         break
-    elif cmd == "SPLASH":
         try:
             cast.media_controller.play_media(
-                "https://blacksamdev.github.io/BBS-Popcorn/splash.png",
                 "image/png"
             )
             sys.stdout.write("ok\\n")
@@ -152,9 +149,6 @@ class CastDaemon:
                 return response == "ok", response
             except Exception as exc:
                 return False, str(exc)
-
-    def splash(self):
-        return self._send("SPLASH")
 
     def cast_async(self, url: str, callback=None):
         def _run():
