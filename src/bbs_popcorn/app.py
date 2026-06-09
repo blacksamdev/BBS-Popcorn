@@ -693,9 +693,7 @@ class YtMpvApp(Gtk.Application):
         self._cast_revealer.set_reveal_child(True)
         self._set_status("Mode cast : " + device["name"] + ".")
         def _on_daemon_ready(ok, err):
-            if ok:
-                self._cast_daemon.splash()
-            else:
+            if not ok:
                 GLib.idle_add(self._set_status, "Cast : " + (err or "erreur connexion"))
         self._cast_daemon.start_async(device["host"], callback=lambda ok, e: GLib.idle_add(_on_daemon_ready, ok, e))
 
