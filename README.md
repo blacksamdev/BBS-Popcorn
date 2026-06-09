@@ -40,6 +40,7 @@ L'application apparaît ensuite dans le menu de votre bureau.
 - **Quitter MPV** : touche `q` ou fermer la fenêtre — la fenêtre YouTube revient automatiquement
 - **Historique** : bouton `🕐` — reprend la lecture là où vous vous étiez arrêté
 - **Commentaires** : bouton `💬` — ouvre la page de la dernière vidéo visionnée pour accéder aux commentaires et à la description
+- **Cast** : bouton `📺` — envoie les vidéos sur un Chromecast sans publicité. Une barre de contrôle apparaît pour pause, volume et libérer l'appareil.
 - **Réglages** : bouton `⚙` — qualité, taille de fenêtre, SponsorBlock, mode éco
 
 > **Note :** un délai de quelques secondes est normal au lancement de chaque vidéo,
@@ -77,6 +78,11 @@ sudo make install
 > **Xorg :** si WebKit affiche des artefacts graphiques, lancer avec :
 > ```bash
 > WEBKIT_DISABLE_DMABUF_RENDERER=1 bbs-popcorn
+> ```
+
+> **Cast Chromecast :** nécessite `pychromecast` installé sur le host :
+> ```bash
+> pip install pychromecast
 > ```
 
 ---
