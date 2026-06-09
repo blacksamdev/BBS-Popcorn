@@ -258,7 +258,7 @@ class YtMpvApp(Gtk.Application):
         self._cast_bar_label.set_hexpand(True)
         self._cast_bar_label.set_xalign(0)
         cast_bar.append(self._cast_bar_label)
-        self._btn_cast_pause = Gtk.Button(label="⏸")
+        self._btn_cast_pause = Gtk.Button(label="▌▌")
         self._btn_cast_pause.set_tooltip_text("Pause / Lecture")
         self._btn_cast_pause.connect("clicked", self._on_cast_pause_clicked)
         cast_bar.append(self._btn_cast_pause)
@@ -665,7 +665,7 @@ class YtMpvApp(Gtk.Application):
     def _on_cast_pause_clicked(self, _btn):
         if self._cast_paused:
             self._cast_daemon.resume()
-            self._btn_cast_pause.set_label("⏸")
+            self._btn_cast_pause.set_label("▌▌")
             self._cast_paused = False
         else:
             self._cast_daemon.pause()
@@ -675,7 +675,7 @@ class YtMpvApp(Gtk.Application):
     def _on_cast_release(self, _btn):
         self._cast_device = None
         self._cast_paused = False
-        self._btn_cast_pause.set_label("⏸")
+        self._btn_cast_pause.set_label("▌▌")
         self.btn_cast.set_tooltip_text("Caster sur un Chromecast")
         self._cast_revealer.set_reveal_child(False)
         self._set_status("Sortie video : BBS pOpcOrn (MPV).")
@@ -687,7 +687,7 @@ class YtMpvApp(Gtk.Application):
         popover.popdown()
         self._cast_device = device
         self._cast_paused = False
-        self._btn_cast_pause.set_label("⏸")
+        self._btn_cast_pause.set_label("▌▌")
         self.btn_cast.set_tooltip_text("Sortie video : " + device["name"])
         self._cast_bar_label.set_label("📺  " + device["name"] + "  —  prochaine vidéo castée")
         self._cast_revealer.set_reveal_child(True)
@@ -807,7 +807,10 @@ class YtMpvApp(Gtk.Application):
         resume_pos = self.player._resume.get(url)
         if resume_pos:
             self._set_status(t("status_resume", time=format_timestamp(resume_pos)))
-        self.player.play(url)
+        if self._cast_device:
+            self._cast_video(url)
+        else:
+            self.player.play(url)
 
     def _on_history_clear(self, _btn):
         self.history.clear()
