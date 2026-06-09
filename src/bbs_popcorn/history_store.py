@@ -59,10 +59,12 @@ class HistoryStore:
 
     def add(self, url: str, title: str = ""):
         """Ajoute une entree. Dedupe par URL (la plus recente remplace l'ancienne)."""
+        existing = next((e for e in self._data if e.get("url") == url), None)
+        kept_title = title.strip() or (existing.get("title", "") if existing else "") or url
         self._data = [e for e in self._data if e.get("url") != url]
         self._data.append({
             "url": url,
-            "title": title.strip() if title.strip() else url,
+            "title": kept_title,
             "ts": int(time.time()),
         })
         self._purge()
