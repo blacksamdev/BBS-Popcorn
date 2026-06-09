@@ -651,7 +651,7 @@ class YtMpvApp(Gtk.Application):
                 model = device["model"]
                 is_active = active and active.get("host") == device.get("host")
                 prefix = "\u2713  " if is_active else "   "
-                btn = Gtk.Button(label="\U0001f4fa " + prefix + name + "  \u2014  " + model)
+                btn = Gtk.Button(label=prefix + name + "  \u2014  " + model)
                 btn.connect("clicked", self._on_cast_to_device, device, popover)
                 box.append(btn)
         return False
