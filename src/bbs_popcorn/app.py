@@ -154,7 +154,7 @@ class YtMpvApp(Gtk.Application):
             self.btn_cast.set_child(_img)
         except Exception:
             self.btn_cast.set_label("⧉")
-        self.btn_cast.set_tooltip_text("Caster sur un Chromecast")
+        self.btn_cast.set_tooltip_text(t("cast_tooltip"))
         self.btn_cast.set_sensitive(True)
         self.btn_cast.connect("clicked", self._on_cast_clicked)
 
@@ -267,19 +267,19 @@ class YtMpvApp(Gtk.Application):
         self._cast_bar_label.set_xalign(0)
         cast_bar.append(self._cast_bar_label)
         self._btn_cast_pause = Gtk.Button(label="▮▮")
-        self._btn_cast_pause.set_tooltip_text("Pause / Lecture")
+        self._btn_cast_pause.set_tooltip_text(t("cast_pause_tooltip"))
         self._btn_cast_pause.connect("clicked", self._on_cast_pause_clicked)
         cast_bar.append(self._btn_cast_pause)
         btn_vol_down = Gtk.Button(label="🔈")
-        btn_vol_down.set_tooltip_text("Volume -")
+        btn_vol_down.set_tooltip_text(t("cast_vol_down"))
         btn_vol_down.connect("clicked", lambda b: self._cast_daemon.vol_down())
         cast_bar.append(btn_vol_down)
         btn_vol_up = Gtk.Button(label="🔊")
-        btn_vol_up.set_tooltip_text("Volume +")
+        btn_vol_up.set_tooltip_text(t("cast_vol_up"))
         btn_vol_up.connect("clicked", lambda b: self._cast_daemon.vol_up())
         cast_bar.append(btn_vol_up)
         btn_cast_release = Gtk.Button(label="✕")
-        btn_cast_release.set_tooltip_text("Liberer le peripherique")
+        btn_cast_release.set_tooltip_text(t("cast_release"))
         btn_cast_release.connect("clicked", self._on_cast_release)
         cast_bar.append(btn_cast_release)
         self._cast_revealer.set_child(cast_bar)
@@ -589,18 +589,18 @@ class YtMpvApp(Gtk.Application):
         normalized = self.player._prepare_url(url)
         self.history.add(normalized, title="")
         device = self._cast_device
-        self._set_status("Cast : resolution du flux...")
+        self._set_status(t("cast_resolving"))
         def _resolve():
             stream_url = cast_manager.resolve_stream_url(normalized)
             if not stream_url:
-                GLib.idle_add(self._set_status, "Impossible de resoudre le flux.")
+                GLib.idle_add(self._set_status, t("cast_unresolved"))
                 return
-            GLib.idle_add(self._set_status, "Cast vers " + device["name"] + "...")
+            GLib.idle_add(self._set_status, t("cast_to", name=device["name"]))
             self._cast_daemon.cast_async(
                 stream_url,
                 callback=lambda ok, err: GLib.idle_add(
                     self._set_status,
-                    "Lecture sur " + device["name"] + " !" if ok else "Erreur cast : " + err
+                    t("cast_playing", name=device["name"]) if ok else t("cast_error", err=err)
                 )
             )
         threading.Thread(target=_resolve, daemon=True).start()
@@ -613,7 +613,7 @@ class YtMpvApp(Gtk.Application):
         box.set_margin_top(8); box.set_margin_bottom(8)
         box.set_margin_start(12); box.set_margin_end(12)
         # Header
-        lbl_title = Gtk.Label(label="Sortie video :")
+        lbl_title = Gtk.Label(label=t("cast_output"))
         lbl_title.set_xalign(0)
         box.append(lbl_title)
         # Cet appareil
@@ -621,7 +621,7 @@ class YtMpvApp(Gtk.Application):
 
         spinner = Gtk.Spinner()
         spinner.start()
-        lbl_search = Gtk.Label(label="Recherche...")
+        lbl_search = Gtk.Label(label=t("cast_searching"))
         box.append(spinner)
         box.append(lbl_search)
         popover.set_child(box)
@@ -638,12 +638,12 @@ class YtMpvApp(Gtk.Application):
         lbl_search.set_visible(False)
         active = self._cast_device
         if error == "missing":
-            lbl = Gtk.Label(label="pychromecast manquant sur le host.")
+            lbl = Gtk.Label(label=t("cast_missing"))
             box.append(lbl)
-            lbl2 = Gtk.Label(label="pip install pychromecast")
+            lbl2 = Gtk.Label(label=t("cast_missing_hint"))
             box.append(lbl2)
         elif not devices:
-            lbl = Gtk.Label(label="Aucun Chromecast trouve.")
+            lbl = Gtk.Label(label=t("cast_none"))
             box.append(lbl)
         else:
             for device in devices:
@@ -670,9 +670,9 @@ class YtMpvApp(Gtk.Application):
         self._cast_device = None
         self._cast_paused = False
         self._btn_cast_pause.set_label("▮▮")
-        self.btn_cast.set_tooltip_text("Caster sur un Chromecast")
+        self.btn_cast.set_tooltip_text(t("cast_tooltip"))
         self._cast_revealer.set_reveal_child(False)
-        self._set_status("Sortie video : BBS pOpcOrn (MPV).")
+        self._set_status(t("cast_output_local"))
         self._cast_daemon.stop()
         self._cast_daemon.quit()
         self._cast_daemon = cast_manager.CastDaemon()
@@ -682,13 +682,13 @@ class YtMpvApp(Gtk.Application):
         self._cast_device = device
         self._cast_paused = False
         self._btn_cast_pause.set_label("▮▮")
-        self.btn_cast.set_tooltip_text("Sortie video : " + device["name"])
-        self._cast_bar_label.set_label("📺  " + device["name"] + "  —  prochaine vidéo castée")
+        self.btn_cast.set_tooltip_text(t("cast_output_active", name=device["name"]))
+        self._cast_bar_label.set_label(t("cast_next", name=device["name"]))
         self._cast_revealer.set_reveal_child(True)
-        self._set_status("Mode cast : " + device["name"] + ".")
+        self._set_status(t("cast_mode", name=device["name"]))
         def _on_daemon_ready(ok, err):
             if not ok:
-                GLib.idle_add(self._set_status, "Cast : " + (err or "erreur connexion"))
+                GLib.idle_add(self._set_status, (err or t("cast_conn_error")))
         self._cast_daemon.start_async(device["host"], callback=lambda ok, e: GLib.idle_add(_on_daemon_ready, ok, e))
 
     def _on_window_click(self, gesture, n_press, x, y):
