@@ -589,6 +589,7 @@ class YtMpvApp(Gtk.Application):
         normalized = self.player._prepare_url(url)
         self.history.add(normalized, title="")
         device = self._cast_device
+        self.player._fetch_title_async(normalized)
         self._set_status(t("cast_resolving"))
         def _resolve():
             stream_url = cast_manager.resolve_stream_url(normalized)
@@ -699,9 +700,15 @@ class YtMpvApp(Gtk.Application):
             self._history_popover.popdown()
 
     def _on_close_request(self, _win):
-        if self._cast_daemon.is_running():
-            self._cast_daemon.quit()
-        self.player.cleanup()
+        try:
+            if self._cast_daemon.is_running():
+                self._cast_daemon.quit()
+        except Exception:
+            pass
+        try:
+            self.player.cleanup()
+        except Exception:
+            pass
         self.quit()
         return False
 
