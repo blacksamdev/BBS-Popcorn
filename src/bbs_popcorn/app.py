@@ -656,20 +656,6 @@ class YtMpvApp(Gtk.Application):
                 box.append(btn)
         return False
 
-    def _on_cast_select_local(self, _btn, popover):
-        popover.popdown()
-        device = self._cast_device
-        self._cast_device = None
-        self._cast_daemon = cast_manager.CastDaemon()
-        self._cast_paused = False
-        self.btn_cast.set_tooltip_text("Caster sur un Chromecast")
-        self._set_status("Arret du cast...")
-        if device:
-            self._cast_daemon.stop()
-        self._cast_daemon.quit()
-        self._cast_daemon = cast_manager.CastDaemon()
-        self._cast_paused = False
-
     def _on_cast_pause_clicked(self, _btn):
         if self._cast_paused:
             self._cast_daemon.resume()
@@ -810,6 +796,9 @@ class YtMpvApp(Gtk.Application):
 
     def _on_history_play(self, _btn, url):
         self._history_popover.popdown()
+        if "watch?v=" in url:
+            self._current_video_url = url
+            self.btn_comments.set_sensitive(True)
         resume_pos = self.player._resume.get(url)
         if resume_pos:
             self._set_status(t("status_resume", time=format_timestamp(resume_pos)))

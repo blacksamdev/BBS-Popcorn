@@ -43,14 +43,6 @@ for line in sys.stdin:
         continue
     if cmd == "QUIT":
         break
-        try:
-            cast.media_controller.play_media(
-                "image/png"
-            )
-            sys.stdout.write("ok\\n")
-        except Exception as e:
-            sys.stdout.write("error: " + str(e) + "\\n")
-        sys.stdout.flush()
     elif cmd.startswith("CAST "):
         url = cmd[5:]
         try:
@@ -62,10 +54,8 @@ for line in sys.stdin:
     elif cmd == "STOP":
         try:
             cast.quit_app()
-            sys.stdout.write("ok\\n")
         except Exception:
-            sys.stdout.write("ok\\n")
-        sys.stdout.flush()
+            pass
     elif cmd == "PAUSE":
         try:
             cast.media_controller.pause()
