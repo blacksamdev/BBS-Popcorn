@@ -151,13 +151,12 @@ class Updater:
             cmd.append(f"--slang={subtitle_lang}")
             cmd.append("--sub-auto=all")
             cmd.append("--sid=1")
-            # Mode secours : n'afficher que si l'audio ne correspond pas
-            if subtitle_fallback and audio_lang not in ("auto", subtitle_lang):
+            # Secours activé : afficher les sous-titres.
+            # Désactivé : piste chargée mais masquée (touche v pour activer).
+            if subtitle_fallback:
                 cmd.append("--sub-visibility=yes")
-            elif subtitle_fallback:
-                cmd.append("--sub-visibility=no")
             else:
-                cmd.append("--sub-visibility=yes")
+                cmd.append("--sub-visibility=no")
 
         cmd.append(url)
         return Updater.popen_host(cmd)
