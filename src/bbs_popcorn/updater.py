@@ -86,6 +86,9 @@ class Updater:
         start_pos: float = None,
         ipc_socket_path: str = None,
         monitor_offset: tuple = (0, 0),
+        audio_lang: str = "auto",
+        subtitle_lang: str = "none",
+        subtitle_fallback: bool = False,
     ):
         run_args = ["flatpak", "run"]
         if cookies_path:
@@ -134,6 +137,27 @@ class Updater:
             cmd.append(f"--input-ipc-server={ipc_socket_path}")
         ox, oy = monitor_offset if monitor_offset else (0, 0)
         cmd.append(f"--geometry=+{ox}+{oy}")
+
+        # Langue audio préférée
+        if audio_lang and audio_lang != "auto":
+            cmd.append(f"--alang={audio_lang}")
+
+        # Sous-titres : téléchargement via yt-dlp + affichage MPV
+        if subtitle_lang and subtitle_lang != "none":
+            cmd.append(
+                f"--ytdl-raw-options-append=write-subs=,write-auto-subs=,"
+                f"sub-langs={subtitle_lang}.*"
+            )
+            cmd.append(f"--slang={subtitle_lang}")
+            cmd.append("--sub-auto=fuzzy")
+            # Afficher seulement si la piste audio ne correspond pas
+            if subtitle_fallback and audio_lang not in ("auto", subtitle_lang):
+                cmd.append("--sub-visibility=yes")
+            elif subtitle_fallback:
+                cmd.append("--sub-visibility=no")
+            else:
+                cmd.append("--sub-visibility=yes")
+
         cmd.append(url)
         return Updater.popen_host(cmd)
 

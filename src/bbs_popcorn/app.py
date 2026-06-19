@@ -44,6 +44,9 @@ def load_settings() -> dict:
         "sponsorblock_enabled": False,
         "webkit_mode": "normal",
         "language": "fr",
+        "audio_lang": "auto",
+        "subtitle_lang": "none",
+        "subtitle_fallback": False,
     }
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -865,6 +868,104 @@ class YtMpvApp(Gtk.Application):
         quality_row.append(self.quality_combo)
         box.append(quality_row)
 
+        # ── Langue des vidéos ──
+        audio_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        audio_label = Gtk.Label(label=t("settings_audio_lang"))
+        audio_label.set_xalign(0); audio_label.set_hexpand(True)
+        audio_row.append(audio_label)
+        self.audio_lang_combo = Gtk.ComboBoxText()
+        self.audio_lang_combo.append("auto", t("lang_auto"))
+        self.audio_lang_combo.append("fr", "Français")
+        self.audio_lang_combo.append("en", "English")
+        self.audio_lang_combo.append("es", "Español")
+        self.audio_lang_combo.append("de", "Deutsch")
+        self.audio_lang_combo.append("it", "Italiano")
+        self.audio_lang_combo.set_active_id(self.pending_settings.get("audio_lang", "auto"))
+        self.audio_lang_combo.connect("changed", self._on_settings_changed)
+        audio_row.append(self.audio_lang_combo)
+        box.append(audio_row)
+
+        # ── Langue des sous-titres ──
+        sub_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        sub_label = Gtk.Label(label=t("settings_sub_lang"))
+        sub_label.set_xalign(0); sub_label.set_hexpand(True)
+        sub_row.append(sub_label)
+        self.sub_lang_combo = Gtk.ComboBoxText()
+        self.sub_lang_combo.append("none", t("lang_none"))
+        self.sub_lang_combo.append("fr", "Français")
+        self.sub_lang_combo.append("en", "English")
+        self.sub_lang_combo.append("es", "Español")
+        self.sub_lang_combo.append("de", "Deutsch")
+        self.sub_lang_combo.append("it", "Italiano")
+        self.sub_lang_combo.set_active_id(self.pending_settings.get("subtitle_lang", "none"))
+        self.sub_lang_combo.connect("changed", self._on_settings_changed)
+        sub_row.append(self.sub_lang_combo)
+        box.append(sub_row)
+
+        # ── Sous-titres de secours ──
+        subfb_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        subfb_label = Gtk.Label(label=t("settings_sub_fallback"))
+        subfb_label.set_xalign(0); subfb_label.set_hexpand(True)
+        subfb_label.set_wrap(True); subfb_label.set_max_width_chars(32)
+        subfb_row.append(subfb_label)
+        self.sub_fallback_switch = Gtk.Switch()
+        self.sub_fallback_switch.set_valign(Gtk.Align.CENTER)
+        self.sub_fallback_switch.set_active(
+            self.pending_settings.get("subtitle_fallback", False)
+        )
+        self.sub_fallback_switch.connect("state-set", self._on_sub_fallback_changed)
+        subfb_row.append(self.sub_fallback_switch)
+        box.append(subfb_row)
+
+        # ── Langue des vidéos ──
+        audio_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        audio_label = Gtk.Label(label=t("settings_audio_lang"))
+        audio_label.set_xalign(0); audio_label.set_hexpand(True)
+        audio_row.append(audio_label)
+        self.audio_lang_combo = Gtk.ComboBoxText()
+        self.audio_lang_combo.append("auto", t("lang_auto"))
+        self.audio_lang_combo.append("fr", "Français")
+        self.audio_lang_combo.append("en", "English")
+        self.audio_lang_combo.append("es", "Español")
+        self.audio_lang_combo.append("de", "Deutsch")
+        self.audio_lang_combo.append("it", "Italiano")
+        self.audio_lang_combo.set_active_id(self.pending_settings.get("audio_lang", "auto"))
+        self.audio_lang_combo.connect("changed", self._on_settings_changed)
+        audio_row.append(self.audio_lang_combo)
+        box.append(audio_row)
+
+        # ── Langue des sous-titres ──
+        sub_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        sub_label = Gtk.Label(label=t("settings_sub_lang"))
+        sub_label.set_xalign(0); sub_label.set_hexpand(True)
+        sub_row.append(sub_label)
+        self.sub_lang_combo = Gtk.ComboBoxText()
+        self.sub_lang_combo.append("none", t("lang_none"))
+        self.sub_lang_combo.append("fr", "Français")
+        self.sub_lang_combo.append("en", "English")
+        self.sub_lang_combo.append("es", "Español")
+        self.sub_lang_combo.append("de", "Deutsch")
+        self.sub_lang_combo.append("it", "Italiano")
+        self.sub_lang_combo.set_active_id(self.pending_settings.get("subtitle_lang", "none"))
+        self.sub_lang_combo.connect("changed", self._on_settings_changed)
+        sub_row.append(self.sub_lang_combo)
+        box.append(sub_row)
+
+        # ── Sous-titres de secours ──
+        subfb_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        subfb_label = Gtk.Label(label=t("settings_sub_fallback"))
+        subfb_label.set_xalign(0); subfb_label.set_hexpand(True)
+        subfb_label.set_wrap(True); subfb_label.set_max_width_chars(32)
+        subfb_row.append(subfb_label)
+        self.sub_fallback_switch = Gtk.Switch()
+        self.sub_fallback_switch.set_valign(Gtk.Align.CENTER)
+        self.sub_fallback_switch.set_active(
+            self.pending_settings.get("subtitle_fallback", False)
+        )
+        self.sub_fallback_switch.connect("state-set", self._on_sub_fallback_changed)
+        subfb_row.append(self.sub_fallback_switch)
+        box.append(subfb_row)
+
         # ── Mode fenêtre ──
         mode_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         mode_row.append(Gtk.Label(label=t("settings_window")))
@@ -954,6 +1055,9 @@ class YtMpvApp(Gtk.Application):
             window_mode=self.settings.get("window_mode", "windowed"),
             window_scale_percent=int(self.settings.get("window_scale_percent", 80)),
             sponsorblock_enabled=bool(self.settings.get("sponsorblock_enabled", False)),
+            audio_lang=self.settings.get("audio_lang", "auto"),
+            subtitle_lang=self.settings.get("subtitle_lang", "none"),
+            subtitle_fallback=bool(self.settings.get("subtitle_fallback", False)),
         )
 
     def _auto_save(self):
@@ -963,6 +1067,14 @@ class YtMpvApp(Gtk.Application):
         self._apply_player_settings()
         self._apply_webkit_settings()
         self.inject_interceptor()
+
+    def _on_sub_fallback_changed(self, switch, state):
+        self.pending_settings["subtitle_fallback"] = state
+        self._auto_save()
+
+    def _on_sub_fallback_changed(self, switch, state):
+        self.pending_settings["subtitle_fallback"] = state
+        self._auto_save()
 
     def _on_sponsorblock_changed(self, switch, state):
         self.pending_settings["sponsorblock_enabled"] = state
@@ -983,6 +1095,12 @@ class YtMpvApp(Gtk.Application):
         )
         self.pending_settings["webkit_mode"] = (
             self.webkit_mode_combo.get_active_id() or "normal"
+        )
+        self.pending_settings["audio_lang"] = (
+            self.audio_lang_combo.get_active_id() or "auto"
+        )
+        self.pending_settings["subtitle_lang"] = (
+            self.sub_lang_combo.get_active_id() or "none"
         )
         self._sync_scale_sensitivity()
         self._auto_save()

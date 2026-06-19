@@ -46,6 +46,9 @@ class MpvPlayer:
         self.window_mode = "windowed"
         self.window_scale_percent = 80
         self.sponsorblock_enabled = False
+        self.audio_lang = "auto"
+        self.subtitle_lang = "none"
+        self.subtitle_fallback = False
 
         self.on_show_loading = None
         self.on_hide_loading = None
@@ -526,11 +529,17 @@ class MpvPlayer:
         window_mode: str,
         window_scale_percent: int,
         sponsorblock_enabled: bool = False,
+        audio_lang: str = "auto",
+        subtitle_lang: str = "none",
+        subtitle_fallback: bool = False,
     ):
         self.quality_target = quality_target
         self.window_mode = window_mode
         self.window_scale_percent = window_scale_percent
         self.sponsorblock_enabled = sponsorblock_enabled
+        self.audio_lang = audio_lang
+        self.subtitle_lang = subtitle_lang
+        self.subtitle_fallback = subtitle_fallback
         self._sync_sponsorblock()
         if not self._is_playing:
             self.prewarm_mpv()
@@ -698,6 +707,9 @@ class MpvPlayer:
             start_pos=start_pos,
             ipc_socket_path=ipc_socket_path,
             monitor_offset=monitor_offset,
+            audio_lang=self.audio_lang,
+            subtitle_lang=self.subtitle_lang,
+            subtitle_fallback=self.subtitle_fallback,
         )
 
     def _retry_with_fallback(

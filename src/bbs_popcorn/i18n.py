@@ -60,6 +60,11 @@ _STRINGS = {
         "cast_vol_up":          "Volume +",
         "cast_release":         "Libérer le périphérique",
         "cast_output_active":   "Sortie vidéo : {name}",
+        "settings_audio_lang":      "Langue des vidéos",
+        "settings_sub_lang":        "Langue des sous-titres",
+        "settings_sub_fallback":    "Afficher les sous-titres si la langue vidéo n'est pas disponible",
+        "lang_auto":                "Auto / Original",
+        "lang_none":                "Aucun",
 
         # Overlay chargement
         "loading":              "Chargement de la vidéo...",
@@ -131,6 +136,11 @@ _STRINGS = {
         "cast_vol_up":          "Volume +",
         "cast_release":         "Release the device",
         "cast_output_active":   "Video output: {name}",
+        "settings_audio_lang":      "Video language",
+        "settings_sub_lang":        "Subtitle language",
+        "settings_sub_fallback":    "Show subtitles if video language is unavailable",
+        "lang_auto":                "Auto / Original",
+        "lang_none":                "None",
 
         # Loading overlay
         "loading":              "Loading video...",
