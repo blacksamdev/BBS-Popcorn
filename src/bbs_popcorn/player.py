@@ -226,14 +226,8 @@ class MpvPlayer:
             sock.settimeout(2.0)
             sock.connect(_MPV_IPC_SOCKET)
 
-            sub_opts = self._build_sub_options()
-            if sub_opts:
-                load_cmd = ["loadfile", url, "replace", 0, sub_opts]
-            else:
-                load_cmd = ["loadfile", url, "replace"]
-
             msg = json.dumps({
-                "command": load_cmd,
+                "command": ["loadfile", url, "replace"],
                 "request_id": 42
             }).encode() + b"\n"
             sock.sendall(msg)
@@ -599,11 +593,18 @@ class MpvPlayer:
                 if ipc_ready:
                     self._mpv_idle_proc = None
 
-            if idle_proc and self._ipc_loadfile(url, start_pos=start_pos):
+            subs_active = self.subtitle_lang and self.subtitle_lang != "none"
+            if idle_proc and not subs_active and self._ipc_loadfile(url, start_pos=start_pos):
                 process = idle_proc
                 used_ipc = True
                 time.sleep(0.3)
             else:
+                # Sous-titres demandés : tuer le MPV idle inutilisé, lancer un process dédié
+                if idle_proc and subs_active:
+                    try:
+                        idle_proc.terminate()
+                    except Exception:
+                        pass
                 process = self._start_process(
                     url, cookies_path,
                     use_fallback_format=False,
