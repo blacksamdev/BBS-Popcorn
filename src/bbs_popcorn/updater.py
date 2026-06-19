@@ -142,15 +142,16 @@ class Updater:
         if audio_lang and audio_lang != "auto":
             cmd.append(f"--alang={audio_lang}")
 
-        # Sous-titres : téléchargement via yt-dlp + affichage MPV
+        # Sous-titres : yt-dlp récupère la piste, MPV l'affiche
         if subtitle_lang and subtitle_lang != "none":
             cmd.append(
                 f"--ytdl-raw-options-append=write-subs=,write-auto-subs=,"
-                f"sub-langs={subtitle_lang}.*"
+                f"sub-langs={subtitle_lang}.*,sub-format=vtt"
             )
             cmd.append(f"--slang={subtitle_lang}")
-            cmd.append("--sub-auto=fuzzy")
-            # Afficher seulement si la piste audio ne correspond pas
+            cmd.append("--sub-auto=all")
+            cmd.append("--sid=1")
+            # Mode secours : n'afficher que si l'audio ne correspond pas
             if subtitle_fallback and audio_lang not in ("auto", subtitle_lang):
                 cmd.append("--sub-visibility=yes")
             elif subtitle_fallback:
