@@ -145,7 +145,7 @@ class Updater:
         # Sous-titres : yt-dlp récupère la piste, MPV l'affiche
         if subtitle_lang and subtitle_lang != "none":
             cmd.append(
-                f"--ytdl-raw-options-append=write-subs=,write-auto-subs=,"
+                f"--ytdl-raw-options=write-subs=,write-auto-subs=,"
                 f"sub-langs={subtitle_lang}.*,sub-format=vtt"
             )
             cmd.append(f"--slang={subtitle_lang}")
