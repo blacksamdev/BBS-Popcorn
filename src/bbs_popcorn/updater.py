@@ -159,6 +159,8 @@ class Updater:
                 cmd.append("--sub-visibility=no")
 
         cmd.append(url)
+        _subs = [a for a in cmd if "sub" in a or "slang" in a or "ytdl-raw" in a]
+        print("[BBS Popcorn] SUBS FLAGS:", _subs, flush=True)
         return Updater.popen_host(cmd)
 
     @staticmethod
