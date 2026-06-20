@@ -41,7 +41,14 @@ The application will then appear in your desktop menu.
 - **History** : `🕐` button — resumes playback where you left off
 - **Comments** : `💬` button — opens the last watched video page to access comments and description
 - **Cast** : `📺` button — sends videos to a Chromecast without ads. A control bar appears for pause, volume and releasing the device.
-- **Settings** : `⚙` button — quality, window size, SponsorBlock, eco mode
+- **Settings** : `⚙` button — quality, window size, SponsorBlock, audio language, subtitles
+
+> **Subtitles:** audio language and subtitles are configurable in the settings.
+> Display relies on YouTube's `timedtext` API, currently unstable on the server side
+> (frequent `429 Too Many Requests` errors, independent of the application). The subtitle
+> track loads correctly but its content may not display depending on YouTube's availability.
+> This feature will improve with `yt-dlp` updates. For best results, keep `yt-dlp` up to
+> date on the host.
 
 > **Note:** a few seconds delay is normal when launching each video,
 > while the stream is being resolved and playback starts.

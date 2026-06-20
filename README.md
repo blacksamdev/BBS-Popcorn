@@ -41,7 +41,14 @@ L'application apparaît ensuite dans le menu de votre bureau.
 - **Historique** : bouton `🕐` — reprend la lecture là où vous vous étiez arrêté
 - **Commentaires** : bouton `💬` — ouvre la page de la dernière vidéo visionnée pour accéder aux commentaires et à la description
 - **Cast** : bouton `📺` — envoie les vidéos sur un Chromecast sans publicité. Une barre de contrôle apparaît pour pause, volume et libérer l'appareil.
-- **Réglages** : bouton `⚙` — qualité, taille de fenêtre, SponsorBlock, mode éco
+- **Réglages** : bouton `⚙` — qualité, taille de fenêtre, SponsorBlock, langue audio, sous-titres
+
+> **Sous-titres :** la langue audio et les sous-titres sont configurables dans les réglages.
+> L'affichage dépend de l'API `timedtext` de YouTube, actuellement instable côté serveur
+> (erreurs `429 Too Many Requests` fréquentes, indépendantes de l'application). La piste de
+> sous-titres se charge correctement mais son contenu peut ne pas s'afficher selon la
+> disponibilité de YouTube. Cette fonction s'améliorera avec les mises à jour de `yt-dlp`.
+> Pour de meilleurs résultats, gardez `yt-dlp` à jour sur le host.
 
 > **Note :** un délai de quelques secondes est normal au lancement de chaque vidéo,
 > le temps que le flux soit résolu et que la lecture démarre.
