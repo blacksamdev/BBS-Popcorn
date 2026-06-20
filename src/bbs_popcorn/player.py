@@ -203,22 +203,6 @@ class MpvPlayer:
         except Exception:
             pass
 
-    def _build_sub_options(self) -> str:
-        """Construit la chaîne d'options MPV pour les sous-titres (par vidéo)."""
-        opts = []
-        if self.audio_lang and self.audio_lang != "auto":
-            opts.append(f"alang={self.audio_lang}")
-        if self.subtitle_lang and self.subtitle_lang != "none":
-            opts.append(
-                "ytdl-raw-options=write-subs=,write-auto-subs=,"
-                f"sub-langs={self.subtitle_lang}.*,sub-format=vtt"
-            )
-            opts.append(f"slang={self.subtitle_lang}")
-            opts.append("sub-auto=all")
-            opts.append("sid=1")
-            opts.append("sub-visibility=" + ("yes" if self.subtitle_fallback else "no"))
-        return ",".join(opts)
-
     def _ipc_loadfile(self, url: str, start_pos: float = None) -> bool:
         """Send a loadfile command to the pre-warmed MPV via IPC socket."""
         try:
