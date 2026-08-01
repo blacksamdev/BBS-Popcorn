@@ -425,6 +425,10 @@ class YtMpvApp(Gtk.Application):
         return uri.startswith((
             "https://www.youtube.com", "https://youtube.com",
             "https://m.youtube.com", "https://youtu.be", "about:blank",
+            # Connexion au compte Google (redirections OAuth YouTube)
+            "https://accounts.google.com", "https://accounts.youtube.com",
+            "https://myaccount.google.com", "https://consent.youtube.com",
+            "https://consent.google.com", "https://gds.google.com",
         ))
 
     # ───────── JS injection ─────────
