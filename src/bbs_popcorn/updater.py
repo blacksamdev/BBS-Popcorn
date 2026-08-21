@@ -54,6 +54,86 @@ class Updater:
         return subprocess.Popen(cmd)
 
     # ----------------------------
+    # yt-dlp du host
+    # ----------------------------
+    _host_ytdl_cache = None
+
+    @staticmethod
+    def _ytdl_version_tuple(text: str):
+        """Convertit '2026.08.19' en (2026, 8, 19). None si illisible."""
+        try:
+            parts = text.strip().split(".")
+            return tuple(int(p) for p in parts[:3])
+        except (ValueError, AttributeError):
+            return None
+
+    @staticmethod
+    def _probe_host_ytdl():
+        """Cherche un yt-dlp sur le host plus recent que celui du sandbox MPV.
+
+        Le yt-dlp embarque dans le Flatpak MPV suit le cycle de release de
+        Flathub et prend du retard, ce qui provoque des erreurs 403 quand
+        YouTube change ses clients. Si l'utilisateur dispose d'un yt-dlp plus
+        recent, on le prefere.
+
+        Retourne un dict {bin, pythonpath, extra_path} ou None.
+        """
+        probe = (
+            "command -v yt-dlp || exit 1; "
+            "yt-dlp --version; "
+            "python3 -c 'import yt_dlp, os; "
+            "print(os.path.dirname(os.path.dirname(yt_dlp.__file__)))'; "
+            "command -v deno || true"
+        )
+        try:
+            result = subprocess.run(
+                Updater._build_cmd(["sh", "-lc", probe]),
+                capture_output=True, text=True, timeout=15
+            )
+            if result.returncode != 0:
+                return None
+            lines = [l.strip() for l in result.stdout.splitlines() if l.strip()]
+            if len(lines) < 3:
+                return None
+            host_bin, host_ver, site_packages = lines[0], lines[1], lines[2]
+            deno_bin = lines[3] if len(lines) > 3 else ""
+        except Exception:
+            return None
+
+        # Version du yt-dlp embarque dans le Flatpak MPV
+        try:
+            sandbox = subprocess.run(
+                Updater._build_cmd(
+                    ["flatpak", "run", "--command=yt-dlp", "io.mpv.Mpv", "--version"]
+                ),
+                capture_output=True, text=True, timeout=20
+            )
+            sandbox_ver = sandbox.stdout.strip() if sandbox.returncode == 0 else ""
+        except Exception:
+            sandbox_ver = ""
+
+        host_v = Updater._ytdl_version_tuple(host_ver)
+        sandbox_v = Updater._ytdl_version_tuple(sandbox_ver)
+        if host_v is None:
+            return None
+        if sandbox_v is not None and host_v <= sandbox_v:
+            return None
+
+        extra_path = os.path.dirname(deno_bin) if deno_bin else ""
+        return {
+            "bin": host_bin,
+            "pythonpath": site_packages,
+            "extra_path": extra_path,
+        }
+
+    @staticmethod
+    def host_ytdl():
+        """Resultat mis en cache de _probe_host_ytdl()."""
+        if Updater._host_ytdl_cache is None:
+            Updater._host_ytdl_cache = Updater._probe_host_ytdl() or False
+        return Updater._host_ytdl_cache or None
+
+    # ----------------------------
     # MPV
     # ----------------------------
     @staticmethod
@@ -93,6 +173,18 @@ class Updater:
         run_args = ["flatpak", "run"]
         if cookies_path:
             run_args.append(f"--filesystem={cookies_path}:ro")
+
+        # Utiliser le yt-dlp du host s'il est plus recent que celui du sandbox
+        host_ytdl = Updater.host_ytdl()
+        if host_ytdl:
+            sandbox_path = "/app/bin:/usr/bin"
+            if host_ytdl["extra_path"]:
+                sandbox_path = host_ytdl["extra_path"] + ":" + sandbox_path
+            run_args += [
+                "--filesystem=home:ro",
+                f"--env=PYTHONPATH={host_ytdl['pythonpath']}",
+                f"--env=PATH={sandbox_path}",
+            ]
 
         if quality_target not in Updater.QUALITY_TARGETS:
             quality_target = "1080"
@@ -137,6 +229,9 @@ class Updater:
             cmd.append(f"--input-ipc-server={ipc_socket_path}")
         ox, oy = monitor_offset if monitor_offset else (0, 0)
         cmd.append(f"--geometry=+{ox}+{oy}")
+
+        if host_ytdl:
+            cmd.append(f"--script-opts=ytdl_hook-ytdl_path={host_ytdl['bin']}")
 
         # Langue audio préférée
         if audio_lang and audio_lang != "auto":
