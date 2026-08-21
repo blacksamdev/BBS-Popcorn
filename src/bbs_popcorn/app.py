@@ -10,7 +10,6 @@ from gi.repository import Gtk, WebKit, GLib, Gio
 
 from bbs_popcorn.history_store import HistoryStore
 from bbs_popcorn.i18n import t, set_lang
-from bbs_popcorn import cast_manager
 from bbs_popcorn.logging_utils import log_event
 from bbs_popcorn.player import MpvPlayer
 
@@ -136,9 +135,6 @@ class YtMpvApp(Gtk.Application):
 
         self._current_video_url = None
         self._comments_nav = False
-        self._cast_device = None
-        self._cast_daemon = cast_manager.CastDaemon()
-        self._cast_paused = False
 
         btn_settings = Gtk.MenuButton(label="⚙")
         btn_settings.set_popover(self._build_settings_popover())
@@ -148,19 +144,6 @@ class YtMpvApp(Gtk.Application):
         self.btn_comments.set_sensitive(False)
         self.btn_comments.connect("clicked", self._on_comments_clicked)
 
-        self.btn_cast = Gtk.Button()
-        _cast_icon_path = "/app/share/bbs-popcorn/chromecast.png"
-        try:
-            from gi.repository import GdkPixbuf
-            _pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(_cast_icon_path, 20, 20, True)
-            _img = Gtk.Image.new_from_pixbuf(_pix)
-            self.btn_cast.set_child(_img)
-        except Exception:
-            self.btn_cast.set_label("⧉")
-        self.btn_cast.set_tooltip_text(t("cast_tooltip"))
-        self.btn_cast.set_sensitive(True)
-        self.btn_cast.connect("clicked", self._on_cast_clicked)
-
         navbar.append(btn_back)
         navbar.append(btn_forward)
         navbar.append(btn_reload)
@@ -168,7 +151,6 @@ class YtMpvApp(Gtk.Application):
         navbar.append(self.url_bar)
         navbar.append(self.btn_history)
         navbar.append(self.btn_comments)
-        navbar.append(self.btn_cast)
         navbar.append(btn_settings)
 
         # ───────── WebKit bridge ─────────
@@ -257,36 +239,6 @@ class YtMpvApp(Gtk.Application):
         self.loading_revealer.set_child(loading_box)
         self.content_overlay.add_overlay(self.loading_revealer)
         vbox.append(self.content_overlay)
-
-        # Barre cast
-        self._cast_revealer = Gtk.Revealer()
-        self._cast_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP)
-        self._cast_revealer.set_transition_duration(200)
-        cast_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        cast_bar.set_margin_start(8); cast_bar.set_margin_end(8)
-        cast_bar.set_margin_top(4); cast_bar.set_margin_bottom(4)
-        self._cast_bar_label = Gtk.Label(label="")
-        self._cast_bar_label.set_hexpand(True)
-        self._cast_bar_label.set_xalign(0)
-        cast_bar.append(self._cast_bar_label)
-        self._btn_cast_pause = Gtk.Button(label="▮▮")
-        self._btn_cast_pause.set_tooltip_text(t("cast_pause_tooltip"))
-        self._btn_cast_pause.connect("clicked", self._on_cast_pause_clicked)
-        cast_bar.append(self._btn_cast_pause)
-        btn_vol_down = Gtk.Button(label="🔈")
-        btn_vol_down.set_tooltip_text(t("cast_vol_down"))
-        btn_vol_down.connect("clicked", lambda b: self._cast_daemon.vol_down())
-        cast_bar.append(btn_vol_down)
-        btn_vol_up = Gtk.Button(label="🔊")
-        btn_vol_up.set_tooltip_text(t("cast_vol_up"))
-        btn_vol_up.connect("clicked", lambda b: self._cast_daemon.vol_up())
-        cast_bar.append(btn_vol_up)
-        btn_cast_release = Gtk.Button(label="✕")
-        btn_cast_release.set_tooltip_text(t("cast_release"))
-        btn_cast_release.connect("clicked", self._on_cast_release)
-        cast_bar.append(btn_cast_release)
-        self._cast_revealer.set_child(cast_bar)
-        vbox.append(self._cast_revealer)
 
         # ───────── Statusbar ─────────
         status_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
@@ -566,9 +518,6 @@ class YtMpvApp(Gtk.Application):
         if "watch?v=" in normalized:
             self._current_video_url = normalized
             GLib.idle_add(lambda: self.btn_comments.set_sensitive(True) or False)
-        if self._cast_device:
-            self._cast_video(url)
-            return
         self.player.play(url)
 
     def _on_url_bar_activate(self, entry):
@@ -589,116 +538,6 @@ class YtMpvApp(Gtk.Application):
         else:
             self.webview.load_uri(url)
 
-    def _on_cast_clicked(self, _btn):
-        self._show_cast_popover()
-
-    def _cast_video(self, url):
-        normalized = self.player._prepare_url(url)
-        self.history.add(normalized, title="")
-        device = self._cast_device
-        self.player._fetch_title_async(normalized)
-        self._set_status(t("cast_resolving"))
-        def _resolve():
-            stream_url = cast_manager.resolve_stream_url(normalized)
-            if not stream_url:
-                GLib.idle_add(self._set_status, t("cast_unresolved"))
-                return
-            GLib.idle_add(self._set_status, t("cast_to", name=device["name"]))
-            self._cast_daemon.cast_async(
-                stream_url,
-                callback=lambda ok, err: GLib.idle_add(
-                    self._set_status,
-                    t("cast_playing", name=device["name"]) if ok else t("cast_error", err=err)
-                )
-            )
-        threading.Thread(target=_resolve, daemon=True).start()
-
-    def _show_cast_popover(self):
-        popover = Gtk.Popover()
-        popover.set_autohide(True)
-        popover.set_parent(self.btn_cast)
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        box.set_margin_top(8); box.set_margin_bottom(8)
-        box.set_margin_start(12); box.set_margin_end(12)
-        # Header
-        lbl_title = Gtk.Label(label=t("cast_output"))
-        lbl_title.set_xalign(0)
-        box.append(lbl_title)
-        # Cet appareil
-        active = self._cast_device
-
-        spinner = Gtk.Spinner()
-        spinner.start()
-        lbl_search = Gtk.Label(label=t("cast_searching"))
-        box.append(spinner)
-        box.append(lbl_search)
-        popover.set_child(box)
-        popover.popup()
-        cast_manager.discover_async(
-            lambda d, e: GLib.idle_add(
-                self._update_cast_popover, popover, box, spinner, lbl_search, d, e
-            )
-        )
-
-    def _update_cast_popover(self, popover, box, spinner, lbl_search, devices, error):
-        spinner.stop()
-        spinner.set_visible(False)
-        lbl_search.set_visible(False)
-        active = self._cast_device
-        if error == "missing":
-            lbl = Gtk.Label(label=t("cast_missing"))
-            box.append(lbl)
-            lbl2 = Gtk.Label(label=t("cast_missing_hint"))
-            box.append(lbl2)
-        elif not devices:
-            lbl = Gtk.Label(label=t("cast_none"))
-            box.append(lbl)
-        else:
-            for device in devices:
-                name = device["name"]
-                model = device["model"]
-                is_active = active and active.get("host") == device.get("host")
-                prefix = "\u2713  " if is_active else "   "
-                btn = Gtk.Button(label=prefix + name + "  \u2014  " + model)
-                btn.connect("clicked", self._on_cast_to_device, device, popover)
-                box.append(btn)
-        return False
-
-    def _on_cast_pause_clicked(self, _btn):
-        if self._cast_paused:
-            self._cast_daemon.resume()
-            self._btn_cast_pause.set_label("▮▮")
-            self._cast_paused = False
-        else:
-            self._cast_daemon.pause()
-            self._btn_cast_pause.set_label("▶")
-            self._cast_paused = True
-
-    def _on_cast_release(self, _btn):
-        self._cast_device = None
-        self._cast_paused = False
-        self._btn_cast_pause.set_label("▮▮")
-        self.btn_cast.set_tooltip_text(t("cast_tooltip"))
-        self._cast_revealer.set_reveal_child(False)
-        self._set_status(t("cast_output_local"))
-        self._cast_daemon.stop()
-        self._cast_daemon.quit()
-        self._cast_daemon = cast_manager.CastDaemon()
-
-    def _on_cast_to_device(self, _btn, device, popover):
-        popover.popdown()
-        self._cast_device = device
-        self._cast_paused = False
-        self._btn_cast_pause.set_label("▮▮")
-        self.btn_cast.set_tooltip_text(t("cast_output_active", name=device["name"]))
-        self._cast_bar_label.set_label(t("cast_next", name=device["name"]))
-        self._cast_revealer.set_reveal_child(True)
-        self._set_status(t("cast_mode", name=device["name"]))
-        def _on_daemon_ready(ok, err):
-            if not ok:
-                GLib.idle_add(self._set_status, (err or t("cast_conn_error")))
-        self._cast_daemon.start_async(device["host"], callback=lambda ok, e: GLib.idle_add(_on_daemon_ready, ok, e))
-
     def _on_window_click(self, gesture, n_press, x, y):
 
         if hasattr(self, '_settings_popover') and self._settings_popover.get_visible():
@@ -707,11 +546,6 @@ class YtMpvApp(Gtk.Application):
             self._history_popover.popdown()
 
     def _on_close_request(self, _win):
-        try:
-            if self._cast_daemon.is_running():
-                self._cast_daemon.quit()
-        except Exception:
-            pass
         try:
             self.player.cleanup()
         except Exception:
@@ -816,10 +650,7 @@ class YtMpvApp(Gtk.Application):
         resume_pos = self.player._resume.get(url)
         if resume_pos:
             self._set_status(t("status_resume", time=format_timestamp(resume_pos)))
-        if self._cast_device:
-            self._cast_video(url)
-        else:
-            self.player.play(url)
+        self.player.play(url)
 
     def _on_history_clear(self, _btn):
         self.history.clear()
