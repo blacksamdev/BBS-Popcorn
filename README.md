@@ -40,7 +40,6 @@ L'application apparaît ensuite dans le menu de votre bureau.
 - **Quitter MPV** : touche `q` ou fermer la fenêtre — la fenêtre YouTube revient automatiquement
 - **Historique** : bouton `🕐` — reprend la lecture là où vous vous étiez arrêté
 - **Commentaires** : bouton `💬` — ouvre la page de la dernière vidéo visionnée pour accéder aux commentaires et à la description
-- **Cast** : bouton `📺` — envoie les vidéos sur un Chromecast sans publicité. Une barre de contrôle apparaît pour pause, volume et libérer l'appareil.
 - **Réglages** : bouton `⚙` — qualité, taille de fenêtre, SponsorBlock, langue audio, sous-titres
 
 > **Sous-titres :** la langue audio et les sous-titres sont configurables dans les réglages.
@@ -52,6 +51,10 @@ L'application apparaît ensuite dans le menu de votre bureau.
 
 > **Note :** un délai de quelques secondes est normal au lancement de chaque vidéo,
 > le temps que le flux soit résolu et que la lecture démarre.
+
+> **Diffusion sur TV :** BBS pOpcOrn se concentre sur la lecture locale et n'embarque
+> pas de client Chromecast. Pour diffuser sur un téléviseur, utilisez la fonction de
+> diffusion de votre navigateur avec le bloqueur de votre choix.
 
 ---
 
@@ -85,11 +88,6 @@ sudo make install
 > **Xorg :** si WebKit affiche des artefacts graphiques, lancer avec :
 > ```bash
 > WEBKIT_DISABLE_DMABUF_RENDERER=1 bbs-popcorn
-> ```
-
-> **Cast Chromecast :** nécessite `pychromecast` installé sur le host :
-> ```bash
-> pip install pychromecast
 > ```
 
 ---
