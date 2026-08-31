@@ -32,6 +32,20 @@ flatpak install bbs-popcorn io.github.blacksamdev.Popcorn
 
 The application will then appear in your desktop menu.
 
+### 4. Recommended: up-to-date yt-dlp
+
+```bash
+pip install --user --break-system-packages -U yt-dlp
+```
+
+YouTube regularly changes its protections, and the `yt-dlp` bundled in the MPV
+Flatpak follows Flathub's release cycle — it can fall behind and cause
+`403 Forbidden` errors. If a newer `yt-dlp` is present on your system,
+BBS pOpcOrn automatically uses it instead.
+
+If some videos fail to play, update `yt-dlp` and relaunch: that's the first
+thing to try, no need to wait for an application update.
+
 ---
 
 ## Usage
