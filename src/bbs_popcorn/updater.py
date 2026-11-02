@@ -277,6 +277,19 @@ class Updater:
         if cookies_path:
             run_args.append(f"--filesystem={cookies_path}:ro")
 
+        # Meme pont yt-dlp que start_play : le MPV pre-chauffe resout lui-meme
+        # les URLs recues par IPC, il lui faut donc le yt-dlp a jour.
+        host_ytdl = Updater.host_ytdl()
+        if host_ytdl:
+            sandbox_path = "/app/bin:/usr/bin"
+            if host_ytdl["extra_path"]:
+                sandbox_path = host_ytdl["extra_path"] + ":" + sandbox_path
+            run_args += [
+                "--filesystem=home:ro",
+                f"--env=PYTHONPATH={host_ytdl['pythonpath']}",
+                f"--env=PATH={sandbox_path}",
+            ]
+
         cmd = run_args + [
             "io.mpv.Mpv",
             f"--ytdl-format={ytdl_format}",
@@ -300,6 +313,9 @@ class Updater:
             cmd.append(f"--window-scale={scale:.2f}")
         if cookies_path:
             cmd.append(f"--cookies-file={cookies_path}")
+
+        if host_ytdl:
+            cmd.append(f"--script-opts=ytdl_hook-ytdl_path={host_ytdl['bin']}")
 
         return Updater.popen_host(cmd)
 
