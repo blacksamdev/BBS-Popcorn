@@ -20,6 +20,13 @@ class Updater:
     }
     QUALITY_TARGETS = {"2160", "1440", "1080", "720", "480"}
 
+    # Client YouTube impose a yt-dlp.
+    # Les clients choisis par defaut (TVHTML5, WEB_EMBEDDED_PLAYER...)
+    # exigent desormais un GVS PO Token sur une partie du catalogue et
+    # renvoient 403. visionos sert les memes formats sans ce jeton.
+    # A reevaluer a chaque fois que YouTube resserre ses protections.
+    YOUTUBE_CLIENT = "visionos"
+
     # ----------------------------
     # Utils
     # ----------------------------
@@ -253,6 +260,9 @@ class Updater:
             else:
                 cmd.append("--sub-visibility=no")
 
+        cmd.append(
+            "--ytdl-raw-options-append=extractor-args=youtube:player_client=" + Updater.YOUTUBE_CLIENT
+        )
         cmd.append(url)
         return Updater.popen_host(cmd)
 
@@ -316,6 +326,11 @@ class Updater:
 
         if host_ytdl:
             cmd.append(f"--script-opts=ytdl_hook-ytdl_path={host_ytdl['bin']}")
+
+        cmd.append(
+            "--ytdl-raw-options-append=extractor-args=youtube:player_client="
+            + Updater.YOUTUBE_CLIENT
+        )
 
         return Updater.popen_host(cmd)
 
