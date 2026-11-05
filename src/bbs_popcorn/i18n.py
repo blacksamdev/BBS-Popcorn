@@ -10,10 +10,8 @@ _STRINGS = {
         # Navbar tooltips
         "tooltip_history":      "Historique",
         "tooltip_comments":     "Voir les commentaires de la dernière vidéo visionnée",
-        "tooltip_settings":     "Réglages",
 
         # Popover historique
-        "history_title":        "Historique",
         "history_clear":        "Effacer",
         "history_empty":        "Aucun historique.",
 
@@ -37,7 +35,6 @@ _STRINGS = {
             "Lecture externe : la vidéo s'ouvre dans MPV.\n"
             "Pour revenir à YouTube, fermez la fenêtre MPV."
         ),
-        "settings_save":        "Enregistrer",
         "settings_language":    "Langue :",
         "lang_restart":         "Effectif au prochain lancement.",
         "settings_audio_lang":      "Langue des vidéos",
@@ -51,25 +48,16 @@ _STRINGS = {
 
         # Status bar
         "status_ready":         "Prêt.",
-        "status_preparing":     "Préparation de la lecture...",
         "status_resume":        "Reprise à {time}...",
-        "status_playing":       "Lecture en cours.",
-        "status_done":          "Lecture terminée.",
-        "status_done_warn":     "Lecture terminée avec avertissement.",
-        "status_failed":        "Impossible de lancer la lecture.",
-        "status_unavailable":   "Vidéo indisponible.",
         "status_blocked":       "Navigation hors YouTube bloquée.",
-        "status_compat":        "Format compatible : nouvelle tentative...",
     },
 
     "en": {
         # Navbar tooltips
         "tooltip_history":      "History",
         "tooltip_comments":     "View comments from the last watched video",
-        "tooltip_settings":     "Settings",
 
         # History popover
-        "history_title":        "History",
         "history_clear":        "Clear",
         "history_empty":        "No history.",
 
@@ -93,7 +81,6 @@ _STRINGS = {
             "External playback: the video opens in MPV.\n"
             "To return to YouTube, close the MPV window."
         ),
-        "settings_save":        "Save",
         "settings_language":    "Language:",
         "lang_restart":         "Effective on next launch.",
         "settings_audio_lang":      "Video language",
@@ -107,15 +94,8 @@ _STRINGS = {
 
         # Status bar
         "status_ready":         "Ready.",
-        "status_preparing":     "Preparing playback...",
         "status_resume":        "Resuming at {time}...",
-        "status_playing":       "Now playing.",
-        "status_done":          "Playback finished.",
-        "status_done_warn":     "Playback finished with warning.",
-        "status_failed":        "Unable to start playback.",
-        "status_unavailable":   "Video unavailable.",
         "status_blocked":       "Navigation outside YouTube blocked.",
-        "status_compat":        "Compatible format: retrying...",
     },
 }
 

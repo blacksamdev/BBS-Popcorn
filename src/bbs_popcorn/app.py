@@ -35,7 +35,6 @@ SETTINGS_FILE = os.path.join(
 def load_settings() -> dict:
     os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
     defaults = {
-        "theme": "auto",
         "playback_profile": "gaming",
         "quality_target": "1080",
         "window_mode": "windowed",

@@ -38,13 +38,9 @@ The application will then appear in your desktop menu.
 pip install --user --break-system-packages -U yt-dlp
 ```
 
-YouTube regularly changes its protections, and the `yt-dlp` bundled in the MPV
-Flatpak follows Flathub's release cycle — it can fall behind and cause
-`403 Forbidden` errors. If a newer `yt-dlp` is present on your system,
-BBS pOpcOrn automatically uses it instead.
-
-If some videos fail to play, update `yt-dlp` and relaunch: that's the first
-thing to try, no need to wait for an application update.
+The `yt-dlp` bundled in the MPV Flatpak follows Flathub's release cycle and
+can fall behind. If a newer `yt-dlp` is present on your system, BBS pOpcOrn
+automatically uses it instead.
 
 ---
 
@@ -116,6 +112,34 @@ flatpak run io.github.blacksamdev.Popcorn
 ```
 
 ---
+
+### `403 Forbidden` errors on a video
+
+YouTube ties each stream URL to the **client** that produced it (`TVHTML5`,
+`VISIONOS`, `ANDROID_VR`…) and progressively locks some of them behind a token
+`yt-dlp` cannot produce. The lockdown is per-video: some play, some don't, at
+the same moment.
+
+BBS pOpcOrn therefore pins `yt-dlp` to a client known to work (the
+`YOUTUBE_CLIENT` constant in `updater.py`). If videos start failing with `403`,
+that client has been locked in turn — updating `yt-dlp` will not help, another
+client must be picked.
+
+To find one:
+
+```bash
+V="<video_id>"
+for C in visionos default tv_simply web_embedded ios android mweb; do
+  printf "%-14s : " "$C"
+  U=$(yt-dlp --extractor-args "youtube:player_client=$C" \
+      -f "bestvideo[vcodec^=avc1]" --skip-download \
+      -g "https://www.youtube.com/watch?v=$V" 2>/dev/null | head -1)
+  [ -z "$U" ] && { echo "no format"; continue; }
+  curl -s -o /dev/null -r 0-1000 -w "HTTP %{http_code}\n" "$U"
+done
+```
+
+A `206` means the client works; a `403` means it is locked.
 
 ### Debug logs
 

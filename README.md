@@ -38,13 +38,9 @@ L'application apparaît ensuite dans le menu de votre bureau.
 pip install --user --break-system-packages -U yt-dlp
 ```
 
-YouTube modifie régulièrement ses protections, et le `yt-dlp` embarqué dans le
-Flatpak MPV suit le rythme des publications Flathub — il peut donc accumuler du
-retard et provoquer des erreurs `403 Forbidden`. Si un `yt-dlp` plus récent est
-présent sur votre système, BBS pOpcOrn l'utilise automatiquement à la place.
-
-En cas de blocage sur certaines vidéos, mettez `yt-dlp` à jour puis relancez :
-c'est le premier réflexe à avoir, sans attendre de mise à jour de l'application.
+Le `yt-dlp` embarqué dans le Flatpak MPV suit le rythme des publications
+Flathub et peut accumuler du retard. Si un `yt-dlp` plus récent est présent
+sur votre système, BBS pOpcOrn l'utilise automatiquement à la place.
 
 ---
 
@@ -116,6 +112,34 @@ flatpak run io.github.blacksamdev.Popcorn
 ```
 
 ---
+
+### Erreurs `403 Forbidden` sur une vidéo
+
+YouTube lie chaque URL de flux au **client** qui l'a produite (`TVHTML5`,
+`VISIONOS`, `ANDROID_VR`…) et verrouille progressivement certains d'entre eux
+derrière un jeton que `yt-dlp` ne sait pas produire. Le blocage dépend de la
+vidéo : certaines passent, d'autres non, au même moment.
+
+BBS pOpcOrn impose donc à `yt-dlp` un client connu pour fonctionner
+(constante `YOUTUBE_CLIENT` dans `updater.py`). Si des vidéos se mettent à
+échouer en `403`, c'est que ce client a été verrouillé à son tour — mettre
+`yt-dlp` à jour ne suffira pas, il faut en désigner un autre.
+
+Pour en trouver un :
+
+```bash
+V="<id_de_la_video>"
+for C in visionos default tv_simply web_embedded ios android mweb; do
+  printf "%-14s : " "$C"
+  U=$(yt-dlp --extractor-args "youtube:player_client=$C" \
+      -f "bestvideo[vcodec^=avc1]" --skip-download \
+      -g "https://www.youtube.com/watch?v=$V" 2>/dev/null | head -1)
+  [ -z "$U" ] && { echo "pas de format"; continue; }
+  curl -s -o /dev/null -r 0-1000 -w "HTTP %{http_code}\n" "$U"
+done
+```
+
+Un `206` indique un client exploitable ; un `403`, un client verrouillé.
 
 ### Logs de debug
 
